@@ -19,6 +19,9 @@
 <body>
 <a class="skip" href="#main">Skip to content</a>
 
+<div class="ad rail rail-l" data-ad="rail"></div>
+<div class="ad rail rail-r" data-ad="rail"></div>
+
 <header class="top">
   <div class="wrap top-in">
     <a class="logo" href="#play" aria-label="Pixaquest home">
@@ -28,6 +31,7 @@
     <nav class="tabs" id="tabs" aria-label="Main">
       <button data-view="play" class="on"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M7 5l12 7-12 7z"/></svg>Play</button>
       <button data-view="rewards"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="4" y="9" width="16" height="11" rx="2"/><path d="M12 9v11M3 6h18v3H3zM12 6c-2-3-6-2-5 0M12 6c2-3 6-2 5 0"/></svg>Rewards</button>
+      <button data-view="redeem"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M3 9a2 2 0 002-2V6h14v1a2 2 0 002 2v2a2 2 0 000 2v2a2 2 0 00-2 2v1H5v-1a2 2 0 00-2-2v-2a2 2 0 000-2z"/></svg>Redeem</button>
       <button data-view="ranks"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M5 20V12M12 20V5M19 20V9"/></svg>Ranks</button>
       <button data-view="profile"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/></svg>Profile</button>
     </nav>
@@ -58,6 +62,7 @@
 
         <h2 class="h2">Puzzles</h2>
         <p class="lead">Pick any. Every win earns XP and coins.</p>
+        <div class="filters" id="filters" role="group" aria-label="Filter puzzles"></div>
         <div class="grid" id="gameGrid"></div>
         <div class="ad ad-inline" data-ad="inline"></div>
       </div>
@@ -72,11 +77,30 @@
 
   <section id="view-rewards" class="view">
     <h2 class="h2">Milestone rewards</h2>
-    <p class="lead">Reach the level to unlock. Cash rewards are reviewed before payout.</p>
+    <p class="lead">Reach the level to unlock. Coupons go to your wallet on the Redeem page. Cash rewards are reviewed before payout.</p>
     <div class="miles" id="miles"></div>
 
-    <h2 class="h2">Coupon store</h2>
-    <p class="lead">Spend coins you earn from puzzles.</p>
+    <div class="ad ad-inline" data-ad="rewards"></div>
+  </section>
+
+  <section id="view-redeem" class="view">
+    <h2 class="h2">Redeem</h2>
+    <p class="lead">Coupons are worth credits. Spend a coupon on any reward you want. Leftover credit becomes coins.</p>
+
+    <div class="panel promo">
+      <h3>Have a code?</h3>
+      <form id="promoF" class="inline-form"><input id="promoIn" maxlength="24" placeholder="Enter code" autocapitalize="characters" aria-label="Promo code"><button class="btn primary" type="submit">Apply</button></form>
+    </div>
+
+    <h2 class="h2">My coupons</h2>
+    <div class="miles" id="wallet"></div>
+
+    <h2 class="h2">Choose a reward</h2>
+    <p class="lead">Pick a reward, then pay with any coupon that covers it.</p>
+    <div class="store" id="catalog"></div>
+
+    <h2 class="h2">Turn coins into coupons</h2>
+    <p class="lead">Bigger packs give bonus credit.</p>
     <div class="store" id="store"></div>
     <div class="ad ad-inline" data-ad="rewards"></div>
   </section>
@@ -96,7 +120,7 @@
       <input id="nameIn" maxlength="16" autocomplete="nickname">
       <div class="stats" id="profStats"></div>
     </div>
-    <h2 class="h2">Your rewards</h2>
+    <h2 class="h2">Activity</h2>
     <div class="panel" id="claims"></div>
     <h2 class="h2">Best scores</h2>
     <div class="panel" id="bests"></div>
@@ -106,12 +130,13 @@
 
 <footer class="foot">
   <div class="wrap">
-    <span>© <span id="yr"></span> Pixaquest. Rewards are subject to terms.</span>
-    <span><button class="link" data-legal="terms">Terms</button> · <button class="link" data-legal="privacy">Privacy</button> · <button class="link" data-legal="ads">Ads &amp; rewards</button></span>
+    <span>© <span id="yr"></span> Pixaquest. Rewards are subject to the Terms.</span>
+    <nav class="flinks" aria-label="Legal"><a href="terms.html">Terms</a><a href="privacy.html">Privacy</a><a href="privacy.html#cookies">Cookies</a><a href="faq.html">FAQ</a><a href="faq.html#contact">Contact</a><button class="link" id="cookieBtn">Cookie settings</button></nav>
   </div>
 </footer>
 
 <div class="overlay" id="gameOv" hidden>
+  <div class="ad gside gside-l" data-ad="gameside"></div><div class="ad gside gside-r" data-ad="gameside"></div>
   <div class="game-shell" role="dialog" aria-modal="true" aria-labelledby="gameTitle">
     <div class="game-bar">
       <h2 id="gameTitle"></h2>
