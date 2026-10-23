@@ -11,7 +11,9 @@
     adSlots: { inline: '', side: '', rewards: '', game: '', rail: '', gameside: '' },
     interstitialEvery: 3,   // skippable interstitial every N finished games
   };
-  const RANKS = [[1, 'Rookie'], [3, 'Thinker'], [5, 'Sharp Mind'], [8, 'Strategist'], [12, 'Brainiac'], [18, 'Genius'], [25, 'Mastermind'], [35, 'Grandmaster'], [50, 'Legend']];
+  const RANKS = [[1, 'Rookie', '#9aa1b3'], [3, 'Thinker', '#5aa9ff'], [5, 'Sharp Mind', '#3dd6a5'], [8, 'Strategist', '#ffb454'], [12, 'Brainiac', '#ff7aa8'], [18, 'Genius', '#c28bff'], [25, 'Mastermind', '#ff6b5e'], [35, 'Grandmaster', '#f2d45c'], [50, 'Legend', '#d6ff3d']];
+  const DIFFS = [{ n: 'Easy', m: 1 }, { n: 'Normal', m: 1.5 }, { n: 'Hard', m: 2.5 }];
+  const WHEEL = [{ t: '+20', c: 20, w: 20, col: '#ff6b5e' }, { t: '+50', c: 50, w: 14, col: '#ffb454' }, { t: '+15', c: 15, w: 22, col: '#f2d45c' }, { t: '+100', c: 100, w: 4, col: '#3dd6a5' }, { t: 'Coupon', cp: 150, w: 4, col: '#5aa9ff' }, { t: '2× XP', boost: 1, w: 12, col: '#c28bff' }, { t: '+30', c: 30, w: 16, col: '#ff7aa8' }, { t: '+75', c: 75, w: 8, col: '#4fd1e0' }];
   const MILES = [
     { lvl: 2, type: 'coins', amt: 50, name: '50 bonus coins' },
     { lvl: 3, type: 'coupon', value: 200, name: '200-credit coupon' },
@@ -48,7 +50,7 @@
 
   /* ================= STATE ================= */
   const KEY = 'pixaquest.v1', OLD_KEY = 'pixaton.v1';
-  const fresh = () => ({ name: 'Player', xp: 0, coins: 0, played: 0, streak: 0, lastDay: '', days: [], best: {}, claimed: {}, claims: [], dailyDone: '', bonusDay: '', last: '', coupons: [], seen: {}, promos: {}, q: { day: '', plays: 0, wins: 0, xp: 0, claimed: {} }, week: { id: '', xp: 0 }, sound: true, haptics: true, ads: 0, onboarded: false, ach: {}, stars3: 0, qdone: 0 });
+  const fresh = () => ({ name: 'Player', xp: 0, coins: 0, played: 0, streak: 0, lastDay: '', days: [], best: {}, claimed: {}, claims: [], dailyDone: '', bonusDay: '', last: '', coupons: [], seen: {}, promos: {}, q: { day: '', plays: 0, wins: 0, xp: 0, claimed: {} }, week: { id: '', xp: 0 }, sound: true, haptics: true, ads: 0, onboarded: false, diff: 1, spinDay: '', boost: false, ach: {}, stars3: 0, qdone: 0 });
   let S;
   try { S = Object.assign(fresh(), JSON.parse(localStorage.getItem(KEY) || localStorage.getItem(OLD_KEY) || '{}')); } catch { S = fresh(); }
   S.claims = S.claims.filter((c) => { if (c.code) { S.coupons.push({ id: 'm' + Math.random().toString(36).slice(2, 8), title: c.title, code: c.code, value: 200, used: false }); return false; } return true; });
@@ -83,16 +85,21 @@
   /* ================= SOUND & FX ================= */
   let ac;
   const vib = (n) => { try { S.haptics && navigator.vibrate && navigator.vibrate(n); } catch {} };
+  const PENT = [0, 2, 4, 7, 9, 12, 14, 16];
+  function tone(f, delay, dur, type = 'sine', vol = 0.06) {
+    const t0 = ac.currentTime + delay, o = ac.createOscillator(), g = ac.createGain(); o.type = type; o.frequency.value = f; o.connect(g); g.connect(ac.destination);
+    g.gain.setValueAtTime(vol, t0); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur); o.start(t0); o.stop(t0 + dur + 0.05);
+  }
   function sfx(kind, i = 0) {
     if (kind === 'good') vib(15); else if (kind === 'bad') vib([30, 40, 30]);
     if (!S.sound) return;
     try {
       ac = ac || new (window.AudioContext || window.webkitAudioContext)();
-      const o = ac.createOscillator(), g = ac.createGain(); o.connect(g); g.connect(ac.destination);
-      const f = { tap: 420, good: 660, bad: 160, note: [330, 440, 550, 660][i], win: 880 }[kind] || 400;
-      o.type = kind === 'bad' ? 'sawtooth' : 'sine'; o.frequency.value = f;
-      g.gain.setValueAtTime(0.06, ac.currentTime); g.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime + (kind === 'note' ? 0.35 : 0.18));
-      o.start(); o.stop(ac.currentTime + 0.4);
+      if (kind === 'win') { [0, 4, 7, 12, 16].forEach((st, k) => tone(523 * 2 ** (st / 12), k * 0.08, 0.3)); return; }
+      if (kind === 'good') { tone(523 * 2 ** (PENT[Math.min(i, 7)] / 12), 0, 0.22); return; }
+      if (kind === 'bad') { tone(150, 0, 0.25, 'sawtooth', 0.05); return; }
+      if (kind === 'note') { tone([330, 440, 550, 660][i], 0, 0.35); return; }
+      tone(420, 0, 0.12);
     } catch {}
   }
   const cv = $('#fx'), cx = cv.getContext('2d'); let parts = [], raf = 0;
@@ -175,7 +182,7 @@
   function renderTop() {
     const lvl = levelOf(S.xp), r = rankOf(lvl), a = thr(lvl), b = thr(lvl + 1);
     $('#chipCoins').textContent = S.coins; $('#chipLvl').textContent = lvl;
-    $('#lvlBadge').textContent = lvl; $('#lvlBadge').style.setProperty('--p', Math.round((S.xp - a) / (b - a) * 100)); $('#heroRank').textContent = `${r[1]} · Level ${lvl}`;
+    $('#lvlBadge').textContent = lvl; $('#lvlBadge').style.setProperty('--rc', r[2]); $('#lvlBadge').style.setProperty('--p', Math.round((S.xp - a) / (b - a) * 100)); $('#heroRank').textContent = `${r[1]} · Level ${lvl}`;
     $('#xpFill').style.width = ((S.xp - a) / (b - a) * 100) + '%';
     $('#xpText').textContent = `${S.xp - a} / ${b - a} XP to level ${lvl + 1}`;
     const nm = nextMile(); $('#nextMile').textContent = nm ? `Next reward: ${nm.name} at level ${nm.lvl}` : 'All rewards claimed';
@@ -184,7 +191,7 @@
     const cta = $('#ctaPlay'), target = done ? (last || d) : d; cta.dataset.play = target.id; cta.textContent = 'Play';
     const fi = $('#featIcon'); fi.innerHTML = target.icon; fi.style.setProperty('--c', target.color);
     $('#featName').textContent = done ? target.name : `Daily: ${d.name}`;
-    $('#featNote').textContent = done ? 'Daily bonus done. Keep climbing.' : 'Win it for double XP and coins';
+    $('#featNote').textContent = S.boost ? '2× XP boost active for your next win' : done ? 'Daily bonus done. Keep climbing.' : 'Win it for double XP and coins';
   }
   let filter = 'All';
   function renderPlay() {
@@ -199,7 +206,8 @@
     let wk = ''; for (let i = 6; i >= 0; i--) { const d0 = ago(i), ds = dayStr(d0); wk += `<div class="wd ${S.days.includes(ds) ? 'on' : ''} ${i === 0 ? 'now' : ''}"><i></i>${'SMTWTFS'[d0.getDay()]}</div>`; }
     const risk = S.lastDay === dayStr(ago(1)) && st > 0;
     $('#bonus').innerHTML = `<h3>${st ? st + '-day streak' : 'Start a streak'}<span>${risk ? 'Play today to keep it' : 'Daily bonus'}</span></h3><div class="week" aria-hidden="true">${wk}</div>
-      ${claimed ? '<button class="btn block" disabled>Bonus claimed. Back tomorrow</button>' : `<button class="btn primary block" data-bonus="1">Claim ${amt} coins</button>`}`;
+      ${claimed ? '<button class="btn block" disabled>Bonus claimed. Back tomorrow</button>' : `<button class="btn primary block" data-bonus="1">Claim ${amt} coins</button>`}
+      <button class="btn block spinbtn" data-spin="1" ${S.spinDay === dayStr() ? 'disabled' : ''}>${S.spinDay === dayStr() ? 'Lucky spin used. Back tomorrow' : 'Lucky spin'}</button>`;
     // quests
     $('#quests').innerHTML = `<h3>Today's quests<span>Resets at midnight</span></h3>` + QUESTS.map((q) => {
       const v = Math.min(S.q[q.key], q.goal), full = v >= q.goal, got = S.q.claimed[q.id];
@@ -238,7 +246,7 @@
     rows.sort((a, b) => b.xp - a.xp);
     $('#board').innerHTML = rows.slice(0, 12).concat(rows.slice(12).filter((r) => r.me)).map((r) => `<li class="${r.me ? 'me' : ''}"><span class="pos">${rows.indexOf(r) + 1}</span><span class="nm">${esc(r.n)}${r.me ? ' (you)' : ''}</span><span class="xp">${r.xp.toLocaleString()} XP</span></li>`).join('');
     const cur = rankOf(levelOf(S.xp));
-    $('#ladder').innerHTML = RANKS.map((r) => `<div class="rung ${r === cur ? 'cur' : r[0] < cur[0] ? 'past' : ''}"><b>${r[1]}</b><span class="meta">Level ${r[0]}+</span></div>`).join('');
+    $('#ladder').innerHTML = RANKS.map((r) => `<div class="rung ${r === cur ? 'cur' : r[0] < cur[0] ? 'past' : ''}" style="--rc:${r[2]}"><b>${r[1]}</b><span class="meta">Level ${r[0]}+</span></div>`).join('');
   }
   function renderProfile() {
     $('#nameIn').value = S.name;
@@ -320,24 +328,44 @@
     S.q.claimed[id] = 1; S.qdone++; S.coins += q.coins; sfx('win'); toast(`+${q.coins} coins`); bump(); refresh();
   }
 
+  /* ================= GAME HELPERS ================= */
+  function comboHide() { const c = $('#combo'); if (c) c.hidden = true; }
+  function comboShow(n) {
+    const c = $('#combo'); if (!c) return; if (n < 2) { c.hidden = true; return; }
+    c.hidden = false; c.firstElementChild.textContent = `Combo ×${n}`; c.lastElementChild.firstElementChild.style.width = Math.min(100, n * 10) + '%';
+    c.style.setProperty('--h', (60 + n * 28) % 360); c.classList.remove('hit'); void c.offsetWidth; c.classList.add('hit');
+  }
+  function flash(color) { const d = document.createElement('div'); d.className = 'flash'; d.style.background = color; $('.game-shell').append(d); setTimeout(() => d.remove(), 500); }
+  function spend(n) { if (S.coins < n) { toast('Not enough coins'); sfx('bad'); return false; } S.coins -= n; $('#chipCoins').textContent = S.coins; save(); return true; }
+  function addPower({ label, cost, use }) {
+    const b = document.createElement('button'); b.className = 'pw'; b.innerHTML = `<span>${esc(label)}</span><b>${cost}</b>`;
+    b.onclick = () => { if (b.disabled) return; if (!spend(cost)) return; use(b); sfx('win'); };
+    $('#powers').append(b); return b;
+  }
+
   /* ================= GAME FLOW ================= */
   let cleanup = null, sinceAd = 0;
-  function startGame(id, skipHow) {
+  let runDiff = 1;
+  function startGame(id, opts = {}) {
     const g = GAMES.find((x) => x.id === id); if (!g) return;
-    if (!S.seen[g.id] && !skipHow) {
+    if (!opts.skipPre) {
       S.seen[g.id] = 1; save();
-      modal(`<p class="meta">${g.tag} · ${g.time}</p><h2>${g.name}</h2><p>${g.how}</p><div class="acts"><button class="btn primary" id="howGo">Start</button><button class="btn ghost" data-close>Not now</button></div>`);
-      $('#howGo').onclick = () => { closeModal(); startGame(id, true); }; return;
+      modal(`<p class="meta">${g.tag} · ${g.time}</p><h2>${g.name}</h2><p>${g.how}</p>
+        <div class="diff" role="group" aria-label="Difficulty">${DIFFS.map((d, i) => `<button class="dch ${i === S.diff ? 'on' : ''}" data-diff="${i}" aria-pressed="${i === S.diff}"><b>${d.n}</b><span>${d.m}× XP</span></button>`).join('')}</div>
+        <p class="meta">${S.best[g.id] ? 'Your best: ' + S.best[g.id] : 'No score yet. Set one!'}</p>
+        <div class="acts"><button class="btn primary" id="howGo">Start</button><button class="btn ghost" data-close>Not now</button></div>`);
+      $('#howGo').onclick = () => { closeModal(); startGame(id, { skipPre: true }); }; return;
     }
+    runDiff = S.diff;
     stopGame(); $('#gameTitle').textContent = g.name; $('#gameHud').innerHTML = ''; $('#stage').innerHTML = '';
-    $('#gameOv').hidden = false; document.body.style.overflow = 'hidden'; S.last = g.id; $('.game-shell').style.setProperty('--c', g.color);
+    $('#gameOv').hidden = false; document.body.style.overflow = 'hidden'; S.last = g.id; $('.game-shell').style.setProperty('--c', g.color); $('#powers').innerHTML = ''; comboHide();
     const stage = $('#stage'), cd = document.createElement('div'); cd.className = 'cd'; cd.setAttribute('aria-live', 'assertive'); stage.append(cd);
     let n = 3, t; cleanup = () => clearTimeout(t);
     const step = () => {
       if (n > 0) { cd.textContent = n--; cd.classList.remove('pulse'); void cd.offsetWidth; cd.classList.add('pulse'); sfx('tap'); t = setTimeout(step, 520); return; }
       stage.innerHTML = '';
       cleanup = g.mount(stage, {
-        sfx, ...fxApi,
+        sfx, ...fxApi, diff: runDiff, combo: comboShow, flash, spend, power: addPower,
         hud: (items) => { $('#gameHud').innerHTML = items.filter(Boolean).map((i) => typeof i === 'string' ? `<span class="hud">${esc(i)}</span>` : `<span class="hud ${i.low ? 'low' : ''}">${esc(i.t)}</span>`).join(''); },
         end: (r) => finish(g, r),
       });
@@ -349,14 +377,15 @@
   $('#gameClose').onclick = () => { closeGame(); refresh(); };
 
   function finish(g, r) {
-    stopGame(); ensure();
+    stopGame(); ensure(); flash(r.win ? g.color : '#ff6b5e');
     const today = dayStr(), isDaily = g.id === dailyGame().id && S.dailyDone !== today && r.win;
     if (S.lastDay !== today) { S.streak = S.lastDay === dayStr(ago(1)) ? S.streak + 1 : 1; S.lastDay = today; }
     if (!S.days.includes(today)) S.days = S.days.concat(today).slice(-60);
     const mul = 1 + 0.05 * Math.min(S.streak - 1, 10);
     const stars0 = r.win ? (r.quality > .75 ? 3 : r.quality > .4 ? 2 : 1) : 0;
     let xp = r.win ? 40 + r.quality * 80 + (stars0 === 3 ? 25 : 0) : 10 + r.quality * 20;
-    xp = Math.round(xp * mul * (isDaily ? 2 : 1)); const coins = Math.max(2, Math.round(xp / 3));
+    const dm = DIFFS[runDiff].m, bst = S.boost && r.win; if (bst) S.boost = false;
+    xp = Math.round(xp * mul * dm * (bst ? 2 : 1) * (isDaily ? 2 : 1)); const coins = Math.max(2, Math.round(xp / 3));
     if (isDaily) S.dailyDone = today;
     const before = levelOf(S.xp);
     const apply = (x, c) => { S.xp += x; S.coins += c; S.week.xp += x; S.q.xp += x; };
@@ -370,12 +399,12 @@
       const newly = MILES.filter((m) => m.lvl > before && m.lvl <= after && !S.claimed[m.lvl]);
       $('#gameOv').hidden = true;
       if (up && !luShown) { luShown = true; sfx('win'); confetti(220); const mm = modal(`<div class="lu-badge">${after}</div><p class="meta">Level up</p><h2>${rk[1]}</h2><p>${newly.length ? 'Reward unlocked: ' + esc(newly[0].name) : 'Keep going. Your next reward is closer.'}</p><div class="acts"><button class="btn primary" id="luGo">Continue</button></div>`); mm.classList.add('c'); mm.dataset.lock = '1'; $('#luGo').onclick = () => { delete mm.dataset.lock; mm.classList.remove('c'); closeModal(); show(); }; return; }
-      if (r.win && !up) { sfx('win'); confetti(70); }
+      if (r.win && !up) { sfx('win'); confetti(90, undefined, undefined, [g.color, '#f1efe9', '#d6ff3d', '#ff7aa8']); }
       const toGo = b - S.xp;
       const m = modal(`<p class="meta">${r.win ? 'Puzzle solved' : 'Round over'}${r.label ? ' · ' + esc(r.label) : ''}${newBest ? '<span class="tag-best">New best</span>' : ''}</p>
         ${r.win ? `<div class="stars" aria-label="${nStars} of 3 stars">${[1, 2, 3].map((i) => `<svg viewBox="0 0 24 24" class="${i <= nStars ? 'on' : ''}" fill="currentColor"><path d="M12 2l3 6.5 7 .8-5.2 4.8 1.5 7L12 17.5 5.700 21l1.500-7L2 9.300l7-.8z"/></svg>`).join('')}</div>` : ''}
         <div class="res-xp" id="rx">0</div><p style="margin-top:0">XP earned${isDaily ? ' (daily 2×)' : ''}</p>
-        <div class="res-rows">${nStars === 3 ? '<div><span>Perfect bonus</span><b>+25 XP</b></div>' : ''}<div><span>Coins</span><b>+${coins * mult}</b></div><div><span>Streak</span><b>${S.streak} day${S.streak > 1 ? 's' : ''}${mul > 1 ? ' (+' + Math.round((mul - 1) * 100) + '% XP)' : ''}</b></div><div><span>Next level</span><b>${toGo} XP</b></div></div>
+        <div class="res-rows"><div><span>Difficulty</span><b>${DIFFS[runDiff].n} ×${DIFFS[runDiff].m}${bst ? ' · 2× boost' : ''}</b></div>${nStars === 3 ? '<div><span>Perfect bonus</span><b>+25 XP</b></div>' : ''}<div><span>Coins</span><b>+${coins * mult}</b></div><div><span>Streak</span><b>${S.streak} day${S.streak > 1 ? 's' : ''}${mul > 1 ? ' (+' + Math.round((mul - 1) * 100) + '% XP)' : ''}</b></div><div><span>Next level</span><b>${toGo} XP</b></div></div>
         ${up ? `<div class="lvup">Level ${after} reached: ${rk[1]}</div>` : ''}
         ${newly.length ? `<div class="lvup">Reward unlocked: ${esc(newly[0].name)}</div>` : ''}
         <div class="acts"><button class="btn primary" id="again">Play again</button>
@@ -385,7 +414,7 @@
       m.dataset.lock = '1'; countUp($('#rx'), xp * mult);
       const dbl = $('#dbl'); if (dbl) dbl.onclick = () => { delete m.dataset.lock; closeModal(); showAd({ rewarded: true }, (ok) => { if (ok) { apply(xp, coins); boosted = true; save(); bump(); } show(); }); };
       $('#shr').onclick = () => shareText(`I ${r.win ? 'solved' : 'played'} ${g.name} on Pixaquest and earned ${xp * mult} XP. Can you beat me?`);
-      $('#again').onclick = () => { closeModal(); sinceAd++; maybeInterstitial(() => startGame(g.id)); };
+      $('#again').onclick = () => { closeModal(); sinceAd++; maybeInterstitial(() => startGame(g.id, { skipPre: true })); };
       $('#home').onclick = () => { closeModal(); closeGame(); sinceAd++; maybeInterstitial(() => go(newly.length ? 'rewards' : 'play')); };
       renderTop(); bump();
     };
@@ -410,6 +439,27 @@
       <div class="acts"><button class="btn primary" id="obGo">Start with 25 free coins</button></div></div>`, { onClose: () => { if (!S.onboarded) { S.onboarded = true; save(); } done(); } });
     m.dataset.lock = '1';
     $('#obGo').onclick = () => { S.name = ($('#obName').value.trim() || 'Player').slice(0, 16); if (!S.onboarded) { S.onboarded = true; S.coins += 25; save(); } delete m.dataset.lock; closeModal(); refresh(); bump(); };
+  }
+
+  function spinUI() {
+    if (S.spinDay === dayStr()) return toast('Come back tomorrow');
+    const seg = 360 / WHEEL.length, grad = WHEEL.map((w, i) => `${w.col} ${i * seg}deg ${(i + 1) * seg}deg`).join(',');
+    const m = modal(`<p class="meta">Daily reward</p><h2>Lucky spin</h2><div class="wheel-wrap"><div class="pointer"></div><div class="wheel" id="wheel" style="background:conic-gradient(${grad})">${WHEEL.map((w, i) => `<span style="--a:${i * seg + seg / 2}deg">${w.t}</span>`).join('')}</div></div>
+      <div class="acts"><button class="btn primary" id="spinGo">Spin</button><button class="btn ghost" data-close id="spinX">Close</button></div>`);
+    m.classList.add('c');
+    $('#spinGo').onclick = () => {
+      $('#spinGo').disabled = true; $('#spinX').disabled = true; m.dataset.lock = '1'; S.spinDay = dayStr(); save();
+      let r = Math.random() * WHEEL.reduce((a, w) => a + w.w, 0), idx = 0; for (; idx < WHEEL.length - 1; idx++) { r -= WHEEL[idx].w; if (r <= 0) break; }
+      const still = matchMedia('(prefers-reduced-motion:reduce)').matches, deg = 360 * 6 - (idx * seg + seg / 2), wh = $('#wheel');
+      wh.style.transition = still ? 'none' : 'transform 4.2s cubic-bezier(.12,.65,.1,1)'; wh.style.transform = `rotate(${deg}deg)`;
+      let k = 0; const tk = setInterval(() => { sfx('tap'); if (++k > 22) clearInterval(tk); }, 150);
+      setTimeout(() => {
+        clearInterval(tk); const w = WHEEL[idx]; delete m.dataset.lock; $('#spinX').disabled = false; sfx('win'); confetti(90);
+        if (w.c) { S.coins += w.c; bump(); } if (w.cp) addCoupon('Lucky coupon', w.cp); if (w.boost) S.boost = true;
+        $('#spinGo').textContent = w.c ? `You won ${w.c} coins` : w.cp ? 'You won a 150-credit coupon' : 'Next win pays 2× XP';
+        refresh();
+      }, still ? 50 : 4400);
+    };
   }
 
   /* ================= CONSENT ================= */
@@ -438,6 +488,8 @@
     else if (d.claim) claim(d.claim);
     else if (d.buy) buy(d.buy);
     else if (d.bonus) bonus();
+    else if (d.spin) spinUI();
+    else if (d.diff !== undefined) { S.diff = +d.diff; save(); $$('.dch').forEach((b) => { const on = +b.dataset.diff === S.diff; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); }); }
     else if (d.qclaim) qclaim(d.qclaim);
     else if (d.close !== undefined) closeModal();
   });
