@@ -28,6 +28,7 @@
       const peer = new window.Peer(PREFIX + code), t = setTimeout(() => { try { peer.destroy(); } catch {} rej(new Error('timeout')); }, 7000); let cb = () => {};
       peer.on('open', () => { clearTimeout(t); res({ kind: 'peer', onConn: (f) => (cb = f), close: () => { try { peer.destroy(); } catch {} } }); });
       peer.on('connection', (conn) => conn.on('open', () => cb(wrapPeerConn(conn))));
+      peer.on('disconnected', () => { try { peer.reconnect(); } catch {} });
       peer.on('error', (e) => { clearTimeout(t); rej(e); });
     });
   }
@@ -45,15 +46,15 @@
     await loadPeer();
     return new Promise((res, rej) => {
       const peer = new window.Peer(), t = setTimeout(() => { try { peer.destroy(); } catch {} rej(new Error('timeout')); }, 7000);
-      peer.on('open', () => { const conn = peer.connect(PREFIX + code, { serialization: 'json', reliable: true }); conn.on('open', () => { clearTimeout(t); const w = wrapPeerConn(conn); w.close = () => { try { conn.close(); peer.destroy(); } catch {} }; res(w); }); conn.on('error', rej); });
-      peer.on('error', (e) => { clearTimeout(t); rej(e); });
+      peer.on('open', () => { const conn = peer.connect(PREFIX + code, { serialization: 'json', reliable: true }); conn.on('open', () => { clearTimeout(t); const w = wrapPeerConn(conn); w.close = () => { try { conn.close(); peer.destroy(); } catch {} }; res(w); }); conn.on('error', (e) => { clearTimeout(t); try { peer.destroy(); } catch {} rej(e); }); });
+      peer.on('error', (e) => { clearTimeout(t); try { peer.destroy(); } catch {} rej(e); });
     });
   }
   function localJoin(code) {
     return new Promise((res, rej) => {
-      const ch = new BroadcastChannel('pxq-' + code), h = {}; let ok = false;
-      ch.onmessage = (e) => { const m = e.data; if (!m || m.to !== uid) return; if (!ok) { ok = true; clearTimeout(t); res(w); } h.data && h.data(m.data); };
-      const w = { send: (o) => ch.postMessage({ to: 'host', from: uid, data: o }), close: () => { try { ch.postMessage({ to: 'host', from: uid, data: { t: 'bye' } }); ch.close(); } catch {} }, onData: (f) => (h.data = f), onClose: (f) => (h.close = f) };
+      const ch = new BroadcastChannel('pxq-' + code), h = {}, q = []; let ok = false;
+      ch.onmessage = (e) => { const m = e.data; if (!m || m.to !== uid) return; if (!ok) { ok = true; clearTimeout(t); res(w); } if (h.data) h.data(m.data); else q.push(m.data); };
+      const w = { send: (o) => ch.postMessage({ to: 'host', from: uid, data: o }), close: () => { try { ch.postMessage({ to: 'host', from: uid, data: { t: 'bye' } }); ch.close(); } catch {} }, onData: (f) => { h.data = f; q.splice(0).forEach(f); }, onClose: (f) => (h.close = f) };
       const t = setTimeout(() => { ch.close(); rej(new Error('no host')); }, 1800);
       w.send({ t: 'hello', id: uid, name: API.S.name, av: API.S.avatar });
     });
@@ -95,7 +96,7 @@
     if (!s.players.some((p) => p.in && p.status === 'playing')) finishRound();
   }
   function startRound() {
-    const s = S(); if (!room.host) return;
+    const s = S(); if (!room.host || s.phase === 'playing') return;
     const ins = s.players.length; if (ins < 2) return API.toast(T('v.need2'));
     const next = s.phase === 'results' && s.round < s.rounds - 1;
     s.rounds = s.cfg.mode === 'trials' ? 3 : 1; s.round = next ? s.round + 1 : 0;
@@ -108,8 +109,8 @@
   function finishRound() {
     const s = S(); const N = s.players.filter((p) => p.in).length;
     const rows = s.players.filter((p) => p.in).map((p) => { const sc = room.scores.get(p.id) || { score: 0, label: 'Did not finish', dnf: true }; return { id: p.id, name: p.name, av: p.av, score: sc.score, label: sc.label, dnf: !!sc.dnf, win: !!sc.win }; });
-    rows.sort((a, b) => b.score - a.score); let rank = 0;
-    rows.forEach((r, i) => { if (i === 0 || r.score !== rows[i - 1].score) rank = i; r.pts = r.dnf ? 0 : Math.max(1, N - rank); r.rank = rank + 1; const p = player(r.id); p.pts += r.pts; r.total = p.pts; });
+    rows.sort((a, b) => (a.dnf - b.dnf) || b.score - a.score); let rank = 0;
+    rows.forEach((r, i) => { if (i === 0 || r.score !== rows[i - 1].score || r.dnf !== rows[i - 1].dnf) rank = i; r.pts = r.dnf ? 0 : Math.max(1, N - rank); r.rank = rank + 1; const p = player(r.id); p.pts += r.pts; r.total = p.pts; });
     const final = s.round >= s.rounds - 1; s.phase = 'results';
     const res = { t: 'results', round: s.round, rounds: s.rounds, gameId: s.cur ? s.cur.gameId : '', rows, final };
     bcast(res); push(); showResults(res);
@@ -123,11 +124,13 @@
     document.querySelector('#vsOv').hidden = true;
   }
   function onHud(items) {
+    if (!room) return;
     pendingProg = items.filter(Boolean).map((i) => (typeof i === 'string' ? i : i.t)).slice(0, 2).join(' · ');
     if (Date.now() - progT < 500) return; progT = Date.now();
     if (room.host) { const p = player('host'); if (p) { p.prog = pendingProg; schedulePush(); } } else room.conn.send({ t: 'prog', id: uid, p: pendingProg });
   }
   function reportDone(r) {
+    if (!room || !room.state) return;
     const done = { t: 'done', id: me().id, score: r.score || 0, win: !!r.win, label: r.label || '', dnf: !!r.dnf };
     setBar(false);
     if (room.host) hostRecv({ send() {}, close() {} }, done, () => {}); else room.conn.send(done);
@@ -173,7 +176,7 @@
     openLobby(); API.refreshView();
   }
   async function join(code) {
-    code = String(code || '').trim().toUpperCase(); if (code.length < 4) return API.toast(T('v.entercode'));
+    code = String(code || '').trim(); try { code = new URL(code).searchParams.get('room') || code; } catch {} code = code.toUpperCase().replace(/[^A-Z0-9]/g, ''); if (code.length < 4) return API.toast(T('v.entercode'));
     if (room) return API.toast(T('v.leavefirst'));
     API.toast(T('v.joining')); let conn = null, local = false;
     const forceLocal = new URLSearchParams(location.search).get('l') === '1';
@@ -185,7 +188,7 @@
   }
   function leave(silent, why) {
     if (!room) return;
-    try { if (room.host) { bcast({ t: 'closed' }); room.tr.close(); } else room.conn.close(); } catch {}
+    const old = room; try { if (old.host) { bcast({ t: 'closed' }); setTimeout(() => { try { old.tr.close(); } catch {} }, 300); } else old.conn.close(); } catch {}
     room = null; lobbyOpen = false; $('#vsOv').hidden = true; API.closeGame(); setBar(false); API.closeModal();
     if (why) API.toast(why); API.refreshView();
   }
@@ -206,11 +209,11 @@
     const s = room.state, host = room.host, c = s.cfg, inGame = s.phase === 'playing';
     const players = s.players.map((p) => `<li class="vsp ${p.id === me().id ? 'me' : ''}"><span class="vsav">${AVATAR.svg(p.av, 56)}</span><span class="nm"><span class="nrow">${esc(p.name)}${p.id === s.hostId ? `<em>${T('v.host')}</em>` : ''}${p.id === me().id ? `<em class="you">${T('v.you')}</em>` : ''}</span><small>${p.status === 'playing' ? T('v.playing2') : p.status === 'done' ? T('v.finished') : T('v.ready')}</small></span>${host && p.id !== 'host' ? `<button class="btn ghost sm" data-vs="kick:${p.id}" aria-label="${T('v.remove')} ${esc(p.name)}">${T('v.remove')}</button>` : ''}</li>`).join('');
     const empty = Array.from({ length: Math.max(0, 2 - s.players.length) }, () => `<li class="vsp empty"><span class="vsav ph"></span><span class="nm">${T('v.waitfriend')}<small>${T('v.sharelink')}</small></span></li>`).join('');
-    const gameSel = host ? `<select id="vsGame" aria-label="Game">${API.GAMES.map((g) => `<option value="${g.id}" ${c.game === g.id ? 'selected' : ''}>${g.name}</option>`).join('')}</select>` : esc(gname(c.game));
+    const gameSel = host ? `<select id="vsGame" ${s.phase === 'lobby' ? '' : 'disabled'} aria-label="Game">${API.GAMES.map((g) => `<option value="${g.id}" ${c.game === g.id ? 'selected' : ''}>${g.name}</option>`).join('')}</select>` : esc(gname(c.game));
     const cfg = `<div class="panel vsc"><h3>${T('v.settings')}</h3>
-      <div class="vsseg" role="group" aria-label="${T('v.mode')}"><button class="${c.mode === 'duel' ? 'on' : ''}" data-vs="mode:duel" ${host ? '' : 'disabled'}>${T('vs.duel')}<small>${T('v.1game')}</small></button><button class="${c.mode === 'trials' ? 'on' : ''}" data-vs="mode:trials" ${host ? '' : 'disabled'}>${T('vs.trials')}<small>${T('v.3games')}</small></button></div>
+      <div class="vsseg" role="group" aria-label="${T('v.mode')}"><button class="${c.mode === 'duel' ? 'on' : ''}" data-vs="mode:duel" ${host && s.phase === 'lobby' ? '' : 'disabled'}>${T('vs.duel')}<small>${T('v.1game')}</small></button><button class="${c.mode === 'trials' ? 'on' : ''}" data-vs="mode:trials" ${host && s.phase === 'lobby' ? '' : 'disabled'}>${T('vs.trials')}<small>${T('v.3games')}</small></button></div>
       ${c.mode === 'duel' ? `<div class="vsrow"><span>${T('v.game')}</span>${gameSel}</div>` : `<div class="vsrow"><span>${T('v.games')}</span><span class="vsgames">${c.games.map((g) => `<b>${esc(gname(g))}</b>`).join('')}${host ? `<button class="btn ghost sm" data-vs="reroll">${T('v.reroll')}</button>` : ''}</span></div>`}
-      <div class="vsrow"><span>${T('set.diff')}</span><span class="vsdiff">${['easy', 'normal', 'hard'].map((n, i) => `<button class="${c.diff === i ? 'on' : ''}" data-vs="diff:${i}" ${host ? '' : 'disabled'}>${T('diff.' + n)}</button>`).join('')}</span></div>
+      <div class="vsrow"><span>${T('set.diff')}</span><span class="vsdiff">${['easy', 'normal', 'hard'].map((n, i) => `<button class="${c.diff === i ? 'on' : ''}" data-vs="diff:${i}" ${host && s.phase === 'lobby' ? '' : 'disabled'}>${T('diff.' + n)}</button>`).join('')}</span></div>
       <p class="meta">${T(c.mode === 'trials' ? 'v.rules3' : 'v.rules')}</p></div>`;
     const startBtn = host ? `<button class="btn primary lg block" data-vs="start" ${s.players.length < 2 || inGame ? 'disabled' : ''}>${inGame ? T('v.inprogress') : s.players.length < 2 ? T('v.waitplayers') : T('v.start')}</button>` : `<button class="btn lg block" disabled>${inGame ? T('v.inprogress') : T('v.waitstart')}</button>`;
     $('#vsOv').innerHTML = `<div class="vs-shell" role="dialog" aria-modal="true" aria-label="${T('v.lobby')}">
@@ -230,7 +233,10 @@
     if (k === 'copy') copyLink(); else if (k === 'share') shareLink(); else if (k === 'leave') leave();
     else if (k === 'min') { lobbyOpen = false; $('#vsOv').hidden = true; API.go('versus'); } else if (k === 'open') openLobby();
     else if (k === 'kick') kick(v);
-    else if (k === 'mode') { room.state.cfg.mode = v; push(); } else if (k === 'diff') { room.state.cfg.diff = +v; push(); } else if (k === 'reroll') { room.state.cfg.games = pick3(); push(); }
+    else if (k === 'mode' || k === 'diff' || k === 'reroll') {
+      if (!room || !room.host || room.state.phase !== 'lobby') return; const c = room.state.cfg;
+      if (k === 'mode') c.mode = v; else if (k === 'diff') c.diff = +v; else c.games = pick3(); push();
+    }
     else if (k === 'start') startRound();
     else if (k === 'next') { API.closeModal(); startRound(); } else if (k === 'again') { resetToLobby(); openLobby(); }
     else if (k === 'lobby') { const m = $('#modal'); delete m.dataset.lock; API.closeModal(); if (room && room.host) resetToLobby(); openLobby(); }
@@ -238,7 +244,7 @@
   function init(api) {
     API = api;
     document.addEventListener('click', onClick);
-    document.addEventListener('change', (e) => { if (e.target.id === 'vsGame' && room && room.host) { room.state.cfg.game = e.target.value; push(); } });
+    document.addEventListener('change', (e) => { if (e.target.id === 'vsGame' && room && room.host && room.state.phase === 'lobby') { room.state.cfg.game = e.target.value; push(); } });
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && lobbyOpen && !$('#vsOv').hidden && $('#modalOv').hidden && $('#gameOv').hidden) { lobbyOpen = false; $('#vsOv').hidden = true; } });
     $('#vsCreate').onclick = create;
     $('#vsJoinF').onsubmit = (e) => { e.preventDefault(); join($('#vsCode').value); };
