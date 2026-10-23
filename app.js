@@ -196,7 +196,7 @@
       <span class="gfoot meta"><span>${g.tag} · ${g.time}</span>${g.id === d.id && !done ? '<span class="daily-t">Daily · 2×</span>' : `<span>${S.best[g.id] ? 'Best ' + S.best[g.id] : 'New'}</span>`}</span></button>`).join('');
     // bonus + streak
     const st = effStreak(), claimed = S.bonusDay === dayStr(), amt = 10 + 5 * Math.min(st, 6);
-    let wk = ''; for (let i = 6; i >= 0; i--) { const d0 = ago(i), ds = dayStr(d0); wk += `<div class="wd ${S.days.includes(ds) ? 'on' : ''} ${i === 0 ? 'today' : ''}"><i></i>${'SMTWTFS'[d0.getDay()]}</div>`; }
+    let wk = ''; for (let i = 6; i >= 0; i--) { const d0 = ago(i), ds = dayStr(d0); wk += `<div class="wd ${S.days.includes(ds) ? 'on' : ''} ${i === 0 ? 'now' : ''}"><i></i>${'SMTWTFS'[d0.getDay()]}</div>`; }
     const risk = S.lastDay === dayStr(ago(1)) && st > 0;
     $('#bonus').innerHTML = `<h3>${st ? st + '-day streak' : 'Start a streak'}<span>${risk ? 'Play today to keep it' : 'Daily bonus'}</span></h3><div class="week" aria-hidden="true">${wk}</div>
       ${claimed ? '<button class="btn block" disabled>Bonus claimed. Back tomorrow</button>' : `<button class="btn primary block" data-bonus="1">Claim ${amt} coins</button>`}`;
