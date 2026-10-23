@@ -1,0 +1,98 @@
+
+
+                         PIXAQUEST
+                  AI USAGE AND CONTRIBUTION LOG
+
+Project Name : PixaQuest
+Team Name    : The Unknowns
+Document Type: AI Usage and Contribution Record
+Prepared By  : The Unknowns
+
+
+1. EXECUTIVE SUMMARY
+--------------------
+PixaQuest is a money-themed puzzle game application intended to provide
+an engaging puzzle-solving experience through logic, decision-making,
+and game progression.
+
+This log records the AI-assisted work documented for the project. ChatGPT
+was used to help prepare and organize written project documentation,
+including draft policy documents and this AI usage log. This record does
+not claim that AI tools completed the application or independently tested
+its features.
+
+The project team remains responsible for reviewing all generated material,
+checking its accuracy, making implementation decisions, and approving the
+final project submission.
+
+
+2. OBJECTIVES OF AI ASSISTANCE
+------------------------------
+AI assistance was used to support the preparation and organization of
+project documentation. The documented objectives were to:
+
+- Organize project information under the name PixaQuest.
+- Prepare written drafts for project policy documentation.
+- Structure an AI usage and contribution record.
+- Improve clarity, consistency, and readability of the documents.
+- Identify areas that require human review before publication or submission.
+
+No claim is made in this log that AI independently designed, implemented,
+or tested the complete application.
+
+
+3. AI TOOLS AND DOCUMENTED CONTRIBUTIONS
+----------------------------------------
+
+
+3.1 CHATGPT
+-----------
+Documented role:
+Writing assistance, document organization, and preparation of drafts.
+
+Documented contributions:
+- Helped prepare a README draft for the PixaQuest project.
+- Helped draft a Privacy Policy template.
+- Helped draft an Advertising Policy template.
+- Helped draft a Rewards Policy template.
+- Helped draft Terms and Conditions.
+- Helped prepare and revise this AI Usage and Contribution Log.
+- Helped organize the project name and team name consistently in the log.
+
+How the output was used:
+The generated text was prepared as editable project documentation and
+supporting policy drafts. The team should use the documents as drafts and
+ensure that any statements about the actual application are accurate.
+
+Review and limitations:
+AI-generated material may contain omissions or assumptions. The policy
+documents are not legal advice and do not prove legal compliance. They must
+not be treated as an accurate description of app behavior unless their
+contents match the implemented application and the team's actual practices.
+
+3.2 ANTIGRAVITY
+---------------
+Documented contribution:
+No specific Antigravity task or output is documented in the available
+project record. This log therefore does not attribute code, features,
+fixes, or other completed work to Antigravity.
+
+3.3 MICROSOFT COPILOT
+---------------------
+Documented contribution:
+No specific Microsoft Copilot task or output is documented in the available
+project record. This log therefore does not attribute code, debugging,
+features, or other completed work to Microsoft Copilot.
+
+3.4 CLAUDE
+----------
+Documented contribution:
+No specific Claude task or output is documented in the available project
+record. This log therefore does not attribute code, reviews, features, or
+other completed work to Claude.
+
+
+
+
+
+

@@ -60,7 +60,7 @@
       `<path d="M33 25L36 8l9 11 5-13 5 13 9-11 3 17z" fill="#f2d45c" stroke="#d9a441" stroke-width="1"/>`,
       `<path d="M63 52l1.6 3.4 3.6.4-2.7 2.5.8 3.6-3.3-1.9-3.3 1.9.8-3.6-2.7-2.5 3.6-.4z" fill="#f2d45c"/>`,
     ][av.acc] || '';
-    return `<svg class="avsvg" viewBox="0 0 100 100" width="${size}" height="${size}" role="img" aria-label="Character"><defs>${pat}<clipPath id="${id}c"><rect width="100" height="100" rx="24"/></clipPath></defs>
+    return `<svg class="avsvg" viewBox="0 0 100 100" width="${size}" height="${size}" role="img" aria-label="${(window.I18N ? I18N.t('av.label') : 'Character')}"><defs>${pat}<clipPath id="${id}c"><rect width="100" height="100" rx="24"/></clipPath></defs>
       <g clip-path="url(#${id}c)"><rect width="100" height="100" fill="${bg}"/>
       ${back}<path d="${body}" fill="${shirt}"/>${pat ? `<path d="${body}" fill="url(#${id})"/>` : ''}
       <rect x="44" y="60" width="12" height="14" rx="4" fill="${dark(skin, .88)}"/>
@@ -80,26 +80,27 @@
   }
 
   const LOCK = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/></svg>';
-  function mountEditor(el, { av, level, onChange }) {
+  function mountEditor(el, { av, level, onChange, t }) {
+    const T = t || ((k) => k), oname = (o) => (o.n ? T('av.o.' + o.n.toLowerCase().replace(/ /g, '')) : '');
     const set = (k, v) => { av[k] = v; onChange(av); draw(); };
     const group = (title, key, list, render) => `<div class="avg"><h4>${title}</h4><div class="avrow">${list.map((o, i) => {
       const locked = o.lvl && level < o.lvl;
-      return `<button type="button" class="avopt ${av[key] === i ? 'on' : ''}" data-k="${key}" data-i="${i}" ${locked ? 'disabled' : ''} aria-pressed="${av[key] === i}" aria-label="${title}: ${o.n || i + 1}${locked ? ' (unlocks at level ' + o.lvl + ')' : ''}" title="${locked ? 'Unlocks at level ' + o.lvl : (o.n || '')}">${render(i, o)}${locked ? `<span class="lk">${LOCK}<i>${o.lvl}</i></span>` : ''}</button>`;
+      return `<button type="button" class="avopt ${av[key] === i ? 'on' : ''}" data-k="${key}" data-i="${i}" ${locked ? 'disabled' : ''} aria-pressed="${av[key] === i}" aria-label="${title}: ${oname(o) || i + 1}${locked ? ' (' + T('av.locked', { n: o.lvl }) + ')' : ''}" title="${locked ? T('av.locked', { n: o.lvl }) : oname(o)}">${render(i, o)}${locked ? `<span class="lk">${LOCK}<i>${o.lvl}</i></span>` : ''}</button>`;
     }).join('')}</div></div>`;
     const sw = (c) => `<span class="sw2" style="background:${c}"></span>`;
     const prev = (key) => (i) => svg({ ...av, [key]: i }, 44);
     function draw() {
-      el.innerHTML = `<div class="avedit"><div class="avbig">${svg(av, 168)}<div class="avbtns"><button type="button" class="btn sm" data-rand>Randomize</button></div></div>
+      el.innerHTML = `<div class="avedit"><div class="avbig">${svg(av, 168)}<div class="avbtns"><button type="button" class="btn sm" data-rand>${T('av.random')}</button></div></div>
         <div class="avctl">
-          ${group('Skin', 'skin', SKINS.map((c) => ({ n: c })), (i) => sw(SKINS[i]))}
-          ${group('Hair', 'hairStyle', HAIRS, prev('hairStyle'))}
-          ${group('Hair colour', 'hairColor', HAIRC.map((h, i) => ({ n: 'Colour ' + (i + 1), lvl: h.lvl })), (i) => sw(HAIRC[i].c))}
-          ${group('Eyes', 'eyes', EYES, prev('eyes'))}
-          ${group('Mouth', 'mouth', MOUTHS, prev('mouth'))}
-          ${group('Shirt pattern', 'pattern', PATS, prev('pattern'))}
-          ${group('Shirt colour', 'shirtColor', SHIRTC.map((c, i) => ({ n: 'Colour ' + (i + 1) })), (i) => sw(SHIRTC[i]))}
-          ${group('Extras', 'acc', ACCS, prev('acc'))}
-          ${group('Background', 'bg', BGC.map((c, i) => ({ n: 'Colour ' + (i + 1) })), (i) => sw(BGC[i]))}
+          ${group(T('av.skin'), 'skin', SKINS.map(() => ({})), (i) => sw(SKINS[i]))}
+          ${group(T('av.hair'), 'hairStyle', HAIRS, prev('hairStyle'))}
+          ${group(T('av.haircolor'), 'hairColor', HAIRC.map((h) => ({ lvl: h.lvl })), (i) => sw(HAIRC[i].c))}
+          ${group(T('av.eyes'), 'eyes', EYES, prev('eyes'))}
+          ${group(T('av.mouth'), 'mouth', MOUTHS, prev('mouth'))}
+          ${group(T('av.pattern'), 'pattern', PATS, prev('pattern'))}
+          ${group(T('av.shirt'), 'shirtColor', SHIRTC.map(() => ({})), (i) => sw(SHIRTC[i]))}
+          ${group(T('av.extras'), 'acc', ACCS, prev('acc'))}
+          ${group(T('av.bg'), 'bg', BGC.map(() => ({})), (i) => sw(BGC[i]))}
         </div></div>`;
     }
     el.onclick = (e) => {
