@@ -3,13 +3,17 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>pixaquest – Solve Puzzles, Rank Up, Earn Rewards</title>
-<meta name="description" content="Play six brain-sharpening puzzle games, climb the ranks, unlock coupons and cash milestones. Free to play.">
-<meta name="theme-color" content="#0b0d1a">
-<meta property="og:title" content="Pixaton – Solve Puzzles, Rank Up, Earn Rewards">
-<meta property="og:description" content="Sharpen your mind with daily puzzles. Level up, unlock coupons and cash milestones.">
+<title>Pixaquest – Solve Puzzles, Rank Up, Earn Rewards</title>
+<meta name="description" content="Six brain-sharpening puzzle games. Build a streak, climb the ranks, unlock coupons and cash milestones. Free to play.">
+<meta name="theme-color" content="#0e1013">
+<meta property="og:title" content="Pixaquest – Solve Puzzles, Rank Up, Earn Rewards">
+<meta property="og:description" content="Daily puzzles that sharpen your mind. Level up and unlock coupons and cash milestones.">
 <meta property="og:type" content="website">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%237c5cff'/%3E%3Cpath d='M20 18h14a10 10 0 010 20H28v8h-8z' fill='%23fff'/%3E%3C/svg%3E">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600&display=swap">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -17,114 +21,108 @@
 
 <header class="top">
   <div class="wrap top-in">
-    <a class="logo" href="#play" aria-label="Pixaton home"><span class="logo-mark">P</span><span>Pixaton</span></a>
+    <a class="logo" href="#play" aria-label="Pixaquest home">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="#d6ff3d"/><path d="M10 8h8.5a5.5 5.5 0 010 11H15v5h-5z" fill="#14170a"/></svg>
+      <span>Pixaquest</span>
+    </a>
     <nav class="tabs" id="tabs" aria-label="Main">
-      <button data-view="play" class="on">Play</button>
-      <button data-view="rewards">Rewards</button>
-      <button data-view="ranks">Ranks</button>
-      <button data-view="profile">Profile</button>
+      <button data-view="play" class="on"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M7 5l12 7-12 7z"/></svg>Play</button>
+      <button data-view="rewards"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="4" y="9" width="16" height="11" rx="2"/><path d="M12 9v11M3 6h18v3H3zM12 6c-2-3-6-2-5 0M12 6c2-3 6-2 5 0"/></svg>Rewards</button>
+      <button data-view="ranks"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M5 20V12M12 20V5M19 20V9"/></svg>Ranks</button>
+      <button data-view="profile"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/></svg>Profile</button>
     </nav>
     <div class="chips">
-      <div class="chip" title="Coins"><span class="coin"></span><b id="chipCoins">0</b></div>
-      <div class="chip lvl" title="Level"><span>Lv</span><b id="chipLvl">1</b></div>
+      <div class="chip" id="chipCoinBox" title="Coins"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><path d="M12 8v8"/></svg><b id="chipCoins">0</b></div>
+      <div class="chip" title="Level">Lv <b id="chipLvl">1</b></div>
     </div>
   </div>
 </header>
 
-<div class="wrap"><div class="ad ad-banner" data-ad="top"></div></div>
-
 <main id="main" class="wrap">
 
-  <!-- PLAY -->
   <section id="view-play" class="view on">
-    <div class="hero">
-      <div class="hero-l">
-        <p class="eyebrow" id="heroRank">Rookie</p>
-        <h1>Train your brain.<br>Earn real rewards.</h1>
-        <p class="sub">Solve puzzles, gain XP, climb ranks. Hit milestones to unlock coupons and cash rewards.</p>
-        <div class="xpbar" aria-label="XP progress"><i id="xpFill"></i></div>
-        <div class="xpmeta"><span id="xpText">0 / 0 XP</span><span id="nextMile">Next reward: …</span></div>
+    <div class="layout">
+      <div>
+        <div class="panel today">
+          <div class="today-top">
+            <div class="badge" id="lvlBadge">1</div>
+            <div><p class="meta" id="heroRank">Rookie</p><h1 id="heroLine">Solve your first puzzle</h1></div>
+          </div>
+          <div class="bar" aria-label="XP progress"><i id="xpFill"></i></div>
+          <div class="bar-meta meta"><span id="xpText"></span><span id="nextMile"></span></div>
+          <div class="today-cta">
+            <button class="btn primary lg" id="ctaPlay">Play</button>
+            <span class="sec" id="ctaNote"></span>
+          </div>
+        </div>
+
+        <h2 class="h2">Puzzles</h2>
+        <p class="lead">Pick any. Every win earns XP and coins.</p>
+        <div class="grid" id="gameGrid"></div>
+        <div class="ad ad-inline" data-ad="inline"></div>
       </div>
-      <div class="hero-r">
-        <div class="stat"><b id="stStreak">0</b><span>day streak</span></div>
-        <div class="stat"><b id="stPlayed">0</b><span>puzzles solved</span></div>
-        <div class="stat"><b id="stXp">0</b><span>total XP</span></div>
-      </div>
-    </div>
 
-    <div class="daily" id="daily"></div>
-
-    <h2 class="h2">Pick a puzzle</h2>
-    <div class="grid" id="gameGrid"></div>
-
-    <div class="ad ad-inline" data-ad="inline"></div>
-
-    <div class="how">
-      <div><span class="n">1</span><h3>Solve</h3><p>Six game types train memory, logic, speed and focus.</p></div>
-      <div><span class="n">2</span><h3>Rank up</h3><p>Every win earns XP and coins. Streaks multiply them.</p></div>
-      <div><span class="n">3</span><h3>Cash out</h3><p>Milestones unlock coupons and cash payouts.</p></div>
+      <aside class="col-side" aria-label="Daily progress">
+        <div class="panel" id="bonus"></div>
+        <div class="panel" id="quests"></div>
+        <div class="ad ad-side" data-ad="side"></div>
+      </aside>
     </div>
   </section>
 
-  <!-- REWARDS -->
   <section id="view-rewards" class="view">
     <h2 class="h2">Milestone rewards</h2>
-    <p class="muted">Reach the level to unlock. Cash rewards are reviewed before payout.</p>
+    <p class="lead">Reach the level to unlock. Cash rewards are reviewed before payout.</p>
     <div class="miles" id="miles"></div>
 
     <h2 class="h2">Coupon store</h2>
-    <p class="muted">Spend coins you earn from puzzles.</p>
+    <p class="lead">Spend coins you earn from puzzles.</p>
     <div class="store" id="store"></div>
-
     <div class="ad ad-inline" data-ad="rewards"></div>
   </section>
 
-  <!-- RANKS -->
   <section id="view-ranks" class="view">
-    <h2 class="h2">This week's leaderboard</h2>
-    <p class="muted">Resets every Monday. Top 3 earn bonus coins when the week ends.</p>
+    <h2 class="h2">This week</h2>
+    <p class="lead">Resets every Monday. Sample players shown until live ranks launch.</p>
     <ol class="board" id="board"></ol>
     <h2 class="h2">Rank ladder</h2>
     <div class="ladder" id="ladder"></div>
   </section>
 
-  <!-- PROFILE -->
   <section id="view-profile" class="view">
-    <h2 class="h2">Your profile</h2>
-    <div class="card prof">
+    <h2 class="h2">Profile</h2>
+    <div class="panel field">
       <label for="nameIn">Display name</label>
       <input id="nameIn" maxlength="16" autocomplete="nickname">
-      <div class="prof-grid" id="profStats"></div>
+      <div class="stats" id="profStats"></div>
     </div>
     <h2 class="h2">Your rewards</h2>
-    <div class="card" id="claims"></div>
+    <div class="panel" id="claims"></div>
     <h2 class="h2">Best scores</h2>
-    <div class="card" id="bests"></div>
-    <button class="btn ghost danger" id="resetBtn">Reset all progress</button>
+    <div class="panel" id="bests"></div>
+    <p style="margin-top:24px"><button class="btn ghost danger sm" id="resetBtn">Reset all progress</button></p>
   </section>
 </main>
 
 <footer class="foot">
   <div class="wrap">
-    <span>© <span id="yr"></span> Pixaton. Play for fun, rewards subject to terms.</span>
+    <span>© <span id="yr"></span> Pixaquest. Rewards are subject to terms.</span>
     <span><button class="link" data-legal="terms">Terms</button> · <button class="link" data-legal="privacy">Privacy</button> · <button class="link" data-legal="ads">Ads &amp; rewards</button></span>
   </div>
 </footer>
 
-<!-- GAME OVERLAY -->
 <div class="overlay" id="gameOv" hidden>
   <div class="game-shell" role="dialog" aria-modal="true" aria-labelledby="gameTitle">
     <div class="game-bar">
       <h2 id="gameTitle"></h2>
       <div class="game-hud" id="gameHud"></div>
-      <button class="x" id="gameClose" aria-label="Quit game">✕</button>
+      <button class="x" id="gameClose" aria-label="Quit game"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
     </div>
     <div class="stage" id="stage"></div>
     <div class="ad ad-game" data-ad="game"></div>
   </div>
 </div>
 
-<!-- MODAL -->
 <div class="overlay" id="modalOv" hidden>
   <div class="modal" role="dialog" aria-modal="true" id="modal"></div>
 </div>
@@ -132,7 +130,7 @@
 <div id="toasts" aria-live="polite"></div>
 <canvas id="fx" aria-hidden="true"></canvas>
 
-<script src="games.js"></script>
-<script src="app.js"></script>
+<script src="games.js" defer></script>
+<script src="app.js" defer></script>
 </body>
 </html>

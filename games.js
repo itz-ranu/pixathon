@@ -8,12 +8,12 @@
 
   /* ---------- 1. Memory Match ---------- */
   function memory(stage, ctx) {
-    const E = ['🦊', '🐼', '🦁', '🐙', '🦄', '🐢', '🦋', '🍉'];
+    const E = ['●', '▲', '■', '◆', '★', '✚', '♥', '☾'], COL = ['#d6ff3d', '#ff7aa8', '#5aa9ff', '#ffb454', '#8b7bff', '#3dd6a5', '#ff6b5e', '#f1efe9'];
     const deck = shuffle([...E, ...E]);
     let open = [], moves = 0, pairs = 0, lock = false, t0 = Date.now(), timer;
     const grid = $('<div class="board-g mem"></div>');
     deck.forEach((e, i) => {
-      const c = $(`<div class="card3d"><button aria-label="Card ${i + 1}"><span class="f"></span><span class="b">${e}</span></button></div>`);
+      const c = $(`<div class="card3d"><button aria-label="Card ${i + 1}"><span class="f"></span><span class="b" style="color:${COL[E.indexOf(e)]}">${e}</span></button></div>`);
       c.firstChild.onclick = () => {
         if (lock || c.classList.contains('flip') || c.classList.contains('done')) return;
         c.classList.add('flip'); ctx.sfx('tap'); open.push({ c, e });
@@ -122,7 +122,7 @@
 
   /* ---------- 5. Pattern Memory ---------- */
   function pattern(stage, ctx) {
-    const cols = ['#ff5d73', '#2dd4a0', '#4aa3ff', '#ffb020'], seq = []; let pos = 0, accept = false, ended = false, to = [];
+    const cols = ['#ff6b5e', '#3dd6a5', '#5aa9ff', '#ffb454'], seq = []; let pos = 0, accept = false, ended = false, to = [];
     const wrap = $('<div class="pads"></div>');
     const pads = cols.map((c, i) => { const b = $(`<button class="pad" style="--c:${c}" aria-label="Pad ${i + 1}" disabled></button>`); b.onclick = () => press(i); wrap.append(b); return b; });
     const hud = (m) => ctx.hud([`Round ${seq.length}`, m || '']);
@@ -155,12 +155,24 @@
     return () => {};
   }
 
+  const svg = (d) => `<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+  window.ICON = {
+    memory: svg('<rect x="3" y="6" width="11" height="14" rx="2"/><rect x="10" y="4" width="11" height="14" rx="2"/>'),
+    slide: svg('<rect x="4" y="4" width="4.5" height="4.5"/><rect x="9.8" y="4" width="4.5" height="4.5"/><rect x="15.5" y="4" width="4.5" height="4.5"/><rect x="4" y="9.8" width="4.5" height="4.5"/><rect x="9.8" y="9.8" width="4.5" height="4.5"/><rect x="15.5" y="9.8" width="4.5" height="4.5"/><rect x="4" y="15.5" width="4.5" height="4.5"/><rect x="9.8" y="15.5" width="4.5" height="4.5"/>'),
+    words: svg('<path d="M5 19L12 5l7 14M8 14h8"/>'),
+    math: svg('<path d="M4 8h7M7.5 4.5v7M13 15l6 5M19 15l-6 5M13 8h6"/>'),
+    pattern: svg('<circle cx="7" cy="7" r="3"/><circle cx="17" cy="7" r="3"/><circle cx="7" cy="17" r="3"/><circle cx="17" cy="17" r="3"/>'),
+    lights: svg('<path d="M9 18h6M10 21h4M12 3a6 6 0 00-3.5 10.9c.5.4.5 1.1.5 1.6h6c0-.5 0-1.2.5-1.6A6 6 0 0012 3z"/>'),
+    ticket: svg('<path d="M3 9a2 2 0 002-2V6h14v1a2 2 0 002 2v2a2 2 0 000 2v2a2 2 0 00-2 2v1H5v-1a2 2 0 00-2-2v-2a2 2 0 000-2z" transform="translate(0 0)"/><path d="M13 7v10" stroke-dasharray="2 2"/>'),
+    cash: svg('<rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/>'),
+    coin: svg('<circle cx="12" cy="12" r="8"/><path d="M12 8v8"/>'),
+  };
   window.GAMES = [
-    { id: 'memory', name: 'Memory Match', icon: '🧠', color: '#7c5cff', tag: 'Memory', desc: 'Find all 8 pairs with the fewest moves.', mount: memory },
-    { id: 'slide', name: 'Slide Master', icon: '🧩', color: '#2dd4a0', tag: 'Logic', desc: 'Slide tiles into order. Plan ahead.', mount: slide },
-    { id: 'words', name: 'Word Scramble', icon: '🔤', color: '#4aa3ff', tag: 'Language', desc: 'Unscramble 5 words before time runs out.', mount: words },
-    { id: 'math', name: 'Math Sprint', icon: '⚡', color: '#ffb020', tag: 'Speed', desc: '45 seconds. Answer as many as you can.', mount: math },
-    { id: 'pattern', name: 'Pattern Echo', icon: '🎵', color: '#ff5d9e', tag: 'Focus', desc: 'Repeat the growing light-and-sound pattern.', mount: pattern },
-    { id: 'lights', name: 'Lights Out', icon: '💡', color: '#ffd25e', tag: 'Strategy', desc: 'Switch off every light on the 5×5 grid.', mount: lights },
+    { id: 'memory', name: 'Memory Match', icon: ICON.memory, color: '#8b7bff', tag: 'Memory', desc: 'Find all 8 pairs with the fewest moves.', mount: memory },
+    { id: 'slide', name: 'Slide Master', icon: ICON.slide, color: '#3dd6a5', tag: 'Logic', desc: 'Slide tiles into order. Plan ahead.', mount: slide },
+    { id: 'words', name: 'Word Scramble', icon: ICON.words, color: '#5aa9ff', tag: 'Language', desc: 'Unscramble 5 words before time runs out.', mount: words },
+    { id: 'math', name: 'Math Sprint', icon: ICON.math, color: '#ffb454', tag: 'Speed', desc: '45 seconds. Answer as many as you can.', mount: math },
+    { id: 'pattern', name: 'Pattern Echo', icon: ICON.pattern, color: '#ff7aa8', tag: 'Focus', desc: 'Repeat the growing light-and-sound pattern.', mount: pattern },
+    { id: 'lights', name: 'Lights Out', icon: ICON.lights, color: '#f2d45c', tag: 'Strategy', desc: 'Switch off every light on the 5×5 grid.', mount: lights },
   ];
 })();
