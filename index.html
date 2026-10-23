@@ -9,7 +9,10 @@
 <meta property="og:title" content="Pixaquest – Solve Puzzles, Rank Up, Earn Rewards">
 <meta property="og:description" content="Daily puzzles that sharpen your mind. Level up and unlock coupons and cash milestones.">
 <meta property="og:type" content="website">
-<link rel="icon" href="icon.svg" type="image/svg+xml">
+<meta property="og:image" content="assets/logo-full.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" type="image/png" sizes="48x48" href="assets/favicon-48.png">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -25,11 +28,12 @@
 <header class="top">
   <div class="wrap top-in">
     <a class="logo" href="#play" aria-label="Pixaquest home">
-      <svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="#d6ff3d"/><path d="M10 8h8.5a5.5 5.5 0 010 11H15v5h-5z" fill="#14170a"/></svg>
+      <img class="logo-img" src="assets/logo-mark.png" width="40" height="40" alt="" decoding="async">
       <span>Pixaquest</span>
     </a>
     <nav class="tabs" id="tabs" aria-label="Main">
       <button data-view="play" class="on"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M7 5l12 7-12 7z"/></svg>Play</button>
+      <button data-view="versus"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4l9 9M19 4l-9 9M13 13l-3 3M11 13l3 3M4 20l4-4M20 20l-4-4"/></svg>Versus</button>
       <button data-view="rewards"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="4" y="9" width="16" height="11" rx="2"/><path d="M12 9v11M3 6h18v3H3zM12 6c-2-3-6-2-5 0M12 6c2-3 6-2 5 0"/></svg>Rewards</button>
       <button data-view="redeem"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M3 9a2 2 0 002-2V6h14v1a2 2 0 002 2v2a2 2 0 000 2v2a2 2 0 00-2 2v1H5v-1a2 2 0 00-2-2v-2a2 2 0 000-2z"/></svg>Redeem</button>
       <button data-view="ranks"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M5 20V12M12 20V5M19 20V9"/></svg>Ranks</button>
@@ -38,6 +42,7 @@
     <div class="chips">
       <div class="chip" id="chipCoinBox" title="Coins"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><path d="M12 8v8"/></svg><b id="chipCoins">0</b></div>
       <div class="chip" title="Level">Lv <b id="chipLvl">1</b></div>
+      <button class="chip avatar-chip" id="avBtn" aria-label="Your character"></button>
       <button class="chip icon" id="setBtn" aria-label="Settings"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg></button>
     </div>
   </div>
@@ -75,6 +80,26 @@
         <div class="ad ad-side" data-ad="side"></div>
       </aside>
     </div>
+  </section>
+
+  <section id="view-versus" class="view">
+    <div class="vs-hero panel">
+      <p class="meta">Multiplayer</p>
+      <h1>Duel your friends</h1>
+      <p class="sec">Create a room, send the link, and race on the same puzzle. Win rounds, climb the room leaderboard, earn bonus XP and coins.</p>
+    </div>
+    <div id="vsActive"></div>
+    <div class="vs-grid">
+      <div class="panel"><h3>Create a room</h3><p class="sec" style="margin-bottom:16px">You become the host. Pick the game, add friends, remove anyone, and start when ready.</p><button class="btn primary" id="vsCreate">Create room</button></div>
+      <div class="panel"><h3>Join a room</h3><p class="sec" style="margin-bottom:16px">Got a code or an invite link? Enter the code here.</p>
+        <form id="vsJoinF" class="inline-form"><input id="vsCode" maxlength="6" placeholder="ROOM CODE" autocapitalize="characters" autocomplete="off" aria-label="Room code"><button class="btn" type="submit">Join</button></form></div>
+    </div>
+    <h2 class="h2">Modes</h2>
+    <div class="vs-grid">
+      <div class="panel"><h3>Duel</h3><p class="sec">One game, same puzzle for everyone. Highest score wins.</p></div>
+      <div class="panel"><h3>Trials</h3><p class="sec">Three random games back to back. Points add up, best total wins.</p></div>
+    </div>
+    <p class="meta" style="margin-top:16px">Up to 6 players per room. Power-ups are disabled so every match is fair. Rooms close when the host leaves.</p>
   </section>
 
   <section id="view-rewards" class="view">
@@ -123,6 +148,8 @@
       <input id="nameIn" maxlength="16" autocomplete="nickname">
       <div class="stats" id="profStats"></div>
     </div>
+    <h2 class="h2" id="char">Your character</h2>
+    <div class="panel" id="charEditor"></div>
     <h2 class="h2">Achievements</h2>
     <div class="ach" id="ach"></div>
     <h2 class="h2">Activity</h2>
@@ -140,6 +167,8 @@
   </div>
 </footer>
 
+<div class="overlay vs-ov" id="vsOv" hidden></div>
+
 <div class="overlay" id="gameOv" hidden>
   <div class="ad gside gside-l" data-ad="gameside"></div><div class="ad gside gside-r" data-ad="gameside"></div>
   <div class="game-shell" role="dialog" aria-modal="true" aria-labelledby="gameTitle">
@@ -148,6 +177,7 @@
       <div class="game-hud" id="gameHud"></div>
       <button class="x" id="gameClose" aria-label="Quit game"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
     </div>
+    <div class="vsbar" id="vsbar" hidden></div>
     <div class="combo" id="combo" hidden><b></b><span><i></i></span></div>
     <div class="stage" id="stage"></div>
     <div class="powers" id="powers"></div>
@@ -163,6 +193,8 @@
 <canvas id="fx" aria-hidden="true"></canvas>
 
 <script src="games.js" defer></script>
+<script src="avatar.js" defer></script>
+<script src="versus.js" defer></script>
 <script src="app.js" defer></script>
 </body>
 </html>

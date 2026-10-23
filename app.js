@@ -54,6 +54,7 @@
   let S;
   try { S = Object.assign(fresh(), JSON.parse(localStorage.getItem(KEY) || localStorage.getItem(OLD_KEY) || '{}')); } catch { S = fresh(); }
   S.claims = S.claims.filter((c) => { if (c.code) { S.coupons.push({ id: 'm' + Math.random().toString(36).slice(2, 8), title: c.title, code: c.code, value: 200, used: false }); return false; } return true; });
+  if (!S.avatar) S.avatar = AVATAR.random(S.name + Math.random());
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch {} };
   const ACH = [
     { id: 'first', t: 'First win', d: 'Win any puzzle', ok: () => S.played >= 1 },
@@ -181,7 +182,7 @@
   const nextMile = () => MILES.find((m) => !S.claimed[m.lvl]) || null;
   function renderTop() {
     const lvl = levelOf(S.xp), r = rankOf(lvl), a = thr(lvl), b = thr(lvl + 1);
-    $('#chipCoins').textContent = S.coins; $('#chipLvl').textContent = lvl;
+    $('#chipCoins').textContent = S.coins; $('#chipLvl').textContent = lvl; $('#avBtn').innerHTML = AVATAR.svg(S.avatar, 30);
     $('#lvlBadge').textContent = lvl; $('#lvlBadge').style.setProperty('--rc', r[2]); $('#lvlBadge').style.setProperty('--p', Math.round((S.xp - a) / (b - a) * 100)); $('#heroRank').textContent = `${r[1]} · Level ${lvl}`;
     $('#xpFill').style.width = ((S.xp - a) / (b - a) * 100) + '%';
     $('#xpText').textContent = `${S.xp - a} / ${b - a} XP to level ${lvl + 1}`;
@@ -242,20 +243,21 @@
   }
   function renderRanks() {
     let x = (S.week.id.split('-').join('') | 0); const rnd = () => ((x = (x * 1664525 + 1013904223) >>> 0) / 4294967296);
-    const rows = BOTS.map((n) => ({ n, xp: Math.round(120 + rnd() * 1800) })); rows.push({ n: S.name, xp: S.week.xp, me: true });
+    const rows = BOTS.map((n) => ({ n, av: AVATAR.random(n), xp: Math.round(120 + rnd() * 1800) })); rows.push({ n: S.name, av: S.avatar, xp: S.week.xp, me: true });
     rows.sort((a, b) => b.xp - a.xp);
-    $('#board').innerHTML = rows.slice(0, 12).concat(rows.slice(12).filter((r) => r.me)).map((r) => `<li class="${r.me ? 'me' : ''}"><span class="pos">${rows.indexOf(r) + 1}</span><span class="nm">${esc(r.n)}${r.me ? ' (you)' : ''}</span><span class="xp">${r.xp.toLocaleString()} XP</span></li>`).join('');
+    $('#board').innerHTML = rows.slice(0, 12).concat(rows.slice(12).filter((r) => r.me)).map((r) => `<li class="${r.me ? 'me' : ''}"><span class="pos">${rows.indexOf(r) + 1}</span><span class="lav">${AVATAR.svg(r.av, 36)}</span><span class="nm">${esc(r.n)}${r.me ? ' (you)' : ''}</span><span class="xp">${r.xp.toLocaleString()} XP</span></li>`).join('');
     const cur = rankOf(levelOf(S.xp));
     $('#ladder').innerHTML = RANKS.map((r) => `<div class="rung ${r === cur ? 'cur' : r[0] < cur[0] ? 'past' : ''}" style="--rc:${r[2]}"><b>${r[1]}</b><span class="meta">Level ${r[0]}+</span></div>`).join('');
   }
   function renderProfile() {
     $('#nameIn').value = S.name;
     $('#profStats').innerHTML = [[levelOf(S.xp), 'Level'], [S.xp, 'Total XP'], [S.coins, 'Coins'], [S.played, 'Puzzles solved'], [effStreak(), 'Day streak'], [S.ads, 'Bonuses claimed']].map(([v, l]) => `<div><b>${v}</b><span>${l}</span></div>`).join('');
+    AVATAR.mountEditor($('#charEditor'), { av: S.avatar, level: levelOf(S.xp), onChange: (a) => { S.avatar = a; save(); $('#avBtn').innerHTML = AVATAR.svg(a, 30); } });
     $('#ach').innerHTML = ACH.map((a) => `<div class="${S.ach[a.id] ? 'got' : 'lock'}"><b>${a.t}</b><span>${a.d}</span></div>`).join('');
     $('#claims').innerHTML = S.claims.length ? S.claims.slice().reverse().map((c) => `<div class="row"><span>${esc(c.title)}</span><span>${c.code ? `<code class="cp">${esc(c.code)}</code>` : esc(c.status)}</span></div>`).join('') : '<p class="sec">Nothing yet. Claimed rewards and redemptions show up here.</p>';
     $('#bests').innerHTML = GAMES.map((g) => `<div class="row"><span>${g.name}</span><b>${S.best[g.id] || '—'}</b></div>`).join('');
   }
-  const renderers = { play: renderPlay, rewards: renderRewards, redeem: renderRedeem, ranks: renderRanks, profile: renderProfile };
+  const renderers = { play: renderPlay, versus: () => VERSUS.renderView(), rewards: renderRewards, redeem: renderRedeem, ranks: renderRanks, profile: renderProfile };
   let view = 'play';
   function go(v) {
     if (document.startViewTransition && !matchMedia('(prefers-reduced-motion:reduce)').matches && v !== view) return void document.startViewTransition(() => go2(v));
@@ -338,6 +340,7 @@
   function flash(color) { const d = document.createElement('div'); d.className = 'flash'; d.style.background = color; $('.game-shell').append(d); setTimeout(() => d.remove(), 500); }
   function spend(n) { if (S.coins < n) { toast('Not enough coins'); sfx('bad'); return false; } S.coins -= n; $('#chipCoins').textContent = S.coins; save(); return true; }
   function addPower({ label, cost, use }) {
+    if (curDuel) return;
     const b = document.createElement('button'); b.className = 'pw'; b.innerHTML = `<span>${esc(label)}</span><b>${cost}</b>`;
     b.onclick = () => { if (b.disabled) return; if (!spend(cost)) return; use(b); sfx('win'); };
     $('#powers').append(b); return b;
@@ -345,10 +348,11 @@
 
   /* ================= GAME FLOW ================= */
   let cleanup = null, sinceAd = 0;
-  let runDiff = 1;
+  let runDiff = 1, curDuel = null;
   function startGame(id, opts = {}) {
     const g = GAMES.find((x) => x.id === id); if (!g) return;
-    if (!opts.skipPre) {
+    curDuel = opts.duel || null;
+    if (!opts.skipPre && !curDuel) {
       S.seen[g.id] = 1; save();
       modal(`<p class="meta">${g.tag} · ${g.time}</p><h2>${g.name}</h2><p>${g.how}</p>
         <div class="diff" role="group" aria-label="Difficulty">${DIFFS.map((d, i) => `<button class="dch ${i === S.diff ? 'on' : ''}" data-diff="${i}" aria-pressed="${i === S.diff}"><b>${d.n}</b><span>${d.m}× XP</span></button>`).join('')}</div>
@@ -356,7 +360,7 @@
         <div class="acts"><button class="btn primary" id="howGo">Start</button><button class="btn ghost" data-close>Not now</button></div>`);
       $('#howGo').onclick = () => { closeModal(); startGame(id, { skipPre: true }); }; return;
     }
-    runDiff = S.diff;
+    runDiff = curDuel ? curDuel.diff : S.diff;
     stopGame(); $('#gameTitle').textContent = g.name; $('#gameHud').innerHTML = ''; $('#stage').innerHTML = '';
     $('#gameOv').hidden = false; document.body.style.overflow = 'hidden'; S.last = g.id; $('.game-shell').style.setProperty('--c', g.color); $('#powers').innerHTML = ''; comboHide();
     const stage = $('#stage'), cd = document.createElement('div'); cd.className = 'cd'; cd.setAttribute('aria-live', 'assertive'); stage.append(cd);
@@ -365,8 +369,8 @@
       if (n > 0) { cd.textContent = n--; cd.classList.remove('pulse'); void cd.offsetWidth; cd.classList.add('pulse'); sfx('tap'); t = setTimeout(step, 520); return; }
       stage.innerHTML = '';
       cleanup = g.mount(stage, {
-        sfx, ...fxApi, diff: runDiff, combo: comboShow, flash, spend, power: addPower,
-        hud: (items) => { $('#gameHud').innerHTML = items.filter(Boolean).map((i) => typeof i === 'string' ? `<span class="hud">${esc(i)}</span>` : `<span class="hud ${i.low ? 'low' : ''}">${esc(i.t)}</span>`).join(''); },
+        sfx, ...fxApi, diff: runDiff, seed: curDuel ? curDuel.seed : undefined, combo: comboShow, flash, spend, power: addPower,
+        hud: (items) => { if (curDuel && curDuel.onHud) curDuel.onHud(items); $('#gameHud').innerHTML = items.filter(Boolean).map((i) => typeof i === 'string' ? `<span class="hud">${esc(i)}</span>` : `<span class="hud ${i.low ? 'low' : ''}">${esc(i.t)}</span>`).join(''); },
         end: (r) => finish(g, r),
       });
     };
@@ -374,9 +378,10 @@
   }
   function stopGame() { if (cleanup) { try { cleanup(); } catch {} cleanup = null; } }
   function closeGame() { stopGame(); $('#gameOv').hidden = true; document.body.style.overflow = ''; }
-  $('#gameClose').onclick = () => { closeGame(); refresh(); };
+  $('#gameClose').onclick = () => { if (curDuel) { const d = curDuel; curDuel = null; closeGame(); d.onEnd({ win: false, score: 0, dnf: true, label: 'Quit' }); return; } closeGame(); refresh(); };
 
   function finish(g, r) {
+    if (curDuel) { const d = curDuel; curDuel = null; stopGame(); flash(r.win ? g.color : '#ff6b5e'); setTimeout(() => closeGame(), 350); d.onEnd(r); return; }
     stopGame(); ensure(); flash(r.win ? g.color : '#ff6b5e');
     const today = dayStr(), isDaily = g.id === dailyGame().id && S.dailyDone !== today && r.win;
     if (S.lastDay !== today) { S.streak = S.lastDay === dayStr(ago(1)) ? S.streak + 1 : 1; S.lastDay = today; }
@@ -433,11 +438,12 @@
     $('#shApp').onclick = () => shareText('I am training my brain and earning rewards on Pixaquest. Try it!');
   }
   function onboarding(done) {
-    const m = modal(`<div class="welcome"><p class="meta">Welcome</p><h2>Train your brain. Earn rewards.</h2>
+    const m = modal(`<div class="welcome"><img class="wlogo" src="assets/logo-full.png" alt="Pixaquest" width="132" height="132"><div class="obav" id="obAv">${AVATAR.svg(S.avatar, 84)}</div><button class="btn ghost sm" id="obShuf" style="margin:0 auto 8px;display:flex">Shuffle character</button><p class="meta">Welcome</p><h2>Train your brain. Earn rewards.</h2>
       <ul><li><b>1</b>Solve puzzles to earn XP and coins.</li><li><b>2</b>Level up to unlock coupons and cash rewards.</li><li><b>3</b>Spend coupons on the reward you want.</li></ul>
       <label class="sec" for="obName">Pick a display name</label><input id="obName" maxlength="16" value="${S.name === 'Player' ? '' : esc(S.name)}" placeholder="Player" autocomplete="nickname">
       <div class="acts"><button class="btn primary" id="obGo">Start with 25 free coins</button></div></div>`, { onClose: () => { if (!S.onboarded) { S.onboarded = true; save(); } done(); } });
     m.dataset.lock = '1';
+    $('#obShuf').onclick = () => { S.avatar = AVATAR.random(); $('#obAv').innerHTML = AVATAR.svg(S.avatar, 84); save(); renderTop(); };
     $('#obGo').onclick = () => { S.name = ($('#obName').value.trim() || 'Player').slice(0, 16); if (!S.onboarded) { S.onboarded = true; S.coins += 25; save(); } delete m.dataset.lock; closeModal(); refresh(); bump(); };
   }
 
@@ -499,12 +505,19 @@
   $('#promoF').addEventListener('submit', (e) => { e.preventDefault(); promo($('#promoIn').value); $('#promoIn').value = ''; });
   $('#cookieBtn').onclick = consentBanner;
   $('#setBtn').onclick = settings;
-  const askConsent = () => { if (getConsent() === null) setTimeout(consentBanner, 800); };
+  const askConsent = () => { setTimeout(() => VERSUS.boot(), 350); if (getConsent() === null) setTimeout(consentBanner, 800); };
   if (!S.onboarded) setTimeout(() => onboarding(askConsent), 400); else askConsent();
   $('#yr').textContent = new Date().getFullYear();
   addEventListener('hashchange', () => { const v = location.hash.slice(1); if (v in renderers && v !== view) go(v); });
   if ('serviceWorker' in navigator && location.protocol.startsWith('http') && location.hostname !== 'localhost') navigator.serviceWorker.register('sw.js').catch(() => {});
 
+  const PXQ = {
+    get S() { return S; }, GAMES, save, modal, closeModal, toast, confetti, sfx, startGame, closeGame, go,
+    grant({ xp = 0, coins = 0 }) { const b = levelOf(S.xp); S.xp += xp; S.coins += coins; S.week.xp += xp; checkAch(); save(); renderTop(); bump(); const a = levelOf(S.xp); if (a > b) toast(`Level ${a}!`); },
+    refreshView() { renderers[view] && renderers[view](); },
+  };
+  VERSUS.init(PXQ);
+  $('#avBtn').onclick = () => { go('profile'); setTimeout(() => { const c = $('#char'); c && c.scrollIntoView({ behavior: 'smooth' }); }, 120); };
   initAds();
   go(location.hash.slice(1) in renderers ? location.hash.slice(1) : 'play');
 })();

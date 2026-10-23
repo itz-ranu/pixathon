@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1920, height=1080" />
+<title>Cariberry Brag</title>
+<script src="assets/gsap.min.js"></script>
+<script src="assets/audio-data.js"></script>
+<style>
+@font-face { font-family: "Rounded"; src: url("assets/fonts/Rounded.ttf"); font-weight: 100 900; }
+:root {
+  --ink: #524263; --soft: #6B5E7E; --hot1: #F57AB3; --hot2: #B88AF2;
+  --accent: #CCB3F7; --second: #FFBDD6;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: #FFF7FA; font-family: "Rounded", system-ui, sans-serif; color: var(--ink); }
+#root { position: relative; width: 100%; height: 100%; overflow: hidden; background: linear-gradient(160deg, #FFF7FA 0%, #F6F2FE 100%); }
+#bg { position: absolute; inset: 0; overflow: hidden; }
+.glow { position: absolute; border-radius: 50%; filter: blur(70px); }
+#glow1 { width: 900px; height: 900px; left: -240px; top: -300px; background: var(--second); opacity: .55; }
+#glow2 { width: 1000px; height: 1000px; right: -300px; bottom: -420px; background: var(--accent); opacity: .5; }
+.clip { position: absolute; inset: 0; }
+.inner { position: absolute; inset: 0; }
+.abs { position: absolute; }
+.pop { display: block; }
+
+h1, h2, p { margin: 0; }
+.h-xl { font-size: 132px; line-height: 1.04; font-weight: 900; letter-spacing: -2px; }
+.h-lg { font-size: 100px; line-height: 1.04; font-weight: 900; letter-spacing: -1.5px; }
+.sub { font-size: 44px; line-height: 1.2; font-weight: 700; color: var(--soft); }
+.w { display: inline-block; }
+.brand { font-size: 42px; font-weight: 800; color: var(--soft); letter-spacing: .5px; }
+.brand b { display: inline-block; width: 18px; height: 18px; border-radius: 50%; background: linear-gradient(135deg, var(--hot1), var(--hot2)); margin-right: 14px; }
+
+.panel { position: absolute; border-radius: 28px; overflow: hidden; background: #fff;
+  box-shadow: 0 40px 90px rgba(130, 90, 180, .30), 0 0 0 3px rgba(255,255,255,.85); }
+.panel img { width: 100%; height: 100%; display: block; }
+
+.tile { position: absolute; border-radius: 40px; background: rgba(255,255,255,.72);
+  border: 2px solid rgba(82,66,99,.08); box-shadow: 0 14px 40px rgba(130,90,180,.14); }
+.tile img { position: absolute; left: 50%; margin-left: -140px; top: 14px; width: 280px; }
+.tile .lab { position: absolute; left: 0; right: 0; bottom: 18px; text-align: center; font-size: 34px; font-weight: 800; color: var(--ink); }
+.tile.sm img { margin-left: -125px; width: 250px; top: 10px; }
+.tile.sm .lab { font-size: 30px; bottom: 12px; }
+
+.chip { display: inline-block; font-size: 42px; font-weight: 800; padding: 16px 32px; border-radius: 99px;
+  background: rgba(204,179,247,.32); border: 3px solid var(--accent); color: var(--ink); }
+.chip.hot { background: rgba(245,122,179,.20); border-color: var(--hot1); }
+.pill { display: inline-block; font-size: 36px; font-weight: 800; padding: 12px 28px; border-radius: 99px; background: rgba(255,255,255,.8); border: 2px solid rgba(82,66,99,.12); color: var(--ink); }
+.label-s { font-size: 32px; font-weight: 800; color: var(--soft); letter-spacing: 1px; }
+.bar { height: 14px; border-radius: 99px; background: linear-gradient(90deg, var(--hot1), var(--hot2)); }
+.ring { position: absolute; border: 5px solid var(--hot1); border-radius: 22px; box-shadow: 0 0 0 8px rgba(245,122,179,.18); }
+.toggle { position: absolute; border-radius: 99px; background: linear-gradient(135deg, var(--hot1), var(--hot2)); }
+.knob { position: absolute; top: 12%; height: 76%; aspect-ratio: 1; border-radius: 50%; background: #fff; box-shadow: 0 2px 5px rgba(0,0,0,.25); }
+.ripple { position: absolute; width: 60px; height: 60px; border-radius: 50%; border: 5px solid var(--hot1); }
+#cursor { position: absolute; left: 0; top: 0; width: 56px; height: 56px; filter: drop-shadow(0 6px 8px rgba(82,66,99,.35)); }
+</style>
+</head>
+<body>
+<div id="root" data-composition-id="main" data-start="0" data-width="1920" data-height="1080" data-duration="23">
+
+  <div id="bg">
+    <div id="glow1" class="glow"></div>
+    <div id="glow2" class="glow"></div>
+  </div>
+
+  <!-- ===== Scene 1: hook ===== -->
+  <section id="s1" class="clip" data-start="0" data-duration="3.32">
+    <div class="inner" id="s1i">
+      <div class="abs brand" id="s1-brand" style="left:140px; top:96px;"><b></b>Cariberry</div>
+      <h1 class="abs h-xl" style="left:140px; top:290px; width:960px;">
+        <div><span class="w s1w">Your</span> <span class="w s1w">desktop</span></div>
+        <div><span class="w s1w">just</span> <span class="w s1w">got</span></div>
+        <div><span class="w s1w">a</span> <span class="w s1w">bestie.</span></div>
+      </h1>
+      <div class="abs" id="s1-pet" style="left:1070px; top:200px; width:760px;">
+        <img id="s1-pet-img" src="assets/img/dress-coquette.png" style="width:760px; display:block;" alt="" />
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Scene 2: pick your bestie ===== -->
+  <section id="s2" class="clip" data-start="3.02" data-duration="4.8">
+    <div class="inner" id="s2i">
+      <h2 class="abs h-lg" id="s2-title" style="left:0; right:0; top:52px; text-align:center;">Pick your bestie.</h2>
+      <p class="abs sub" id="s2-sub" style="left:0; right:0; top:172px; text-align:center;">She naps. She begs for treats.</p>
+      %%TILES2%%
+    </div>
+  </section>
+
+  <!-- ===== Scene 3: dress her up ===== -->
+  <section id="s3" class="clip" data-start="7.52" data-duration="4.3">
+    <div class="inner" id="s3i">
+      <div class="panel" id="s3-panel" style="left:130px; top:100px; width:495px; height:880px;"><img src="assets/img/panel-closet.png" alt="" /></div>
+      <h2 class="abs h-lg" id="s3-title" style="left:790px; top:84px;">Dress her up.</h2>
+      <p class="abs sub" id="s3-sub" style="left:790px; top:208px;">Mix &amp; match 8 slots at once.</p>
+      %%TILES3%%
+    </div>
+  </section>
+
+  <!-- ===== Scene 4: study with me ===== -->
+  <section id="s4" class="clip" data-start="11.52" data-duration="4.3">
+    <div class="inner" id="s4i">
+      <div class="panel" id="s4-home" style="left:110px; top:210px; width:438px; height:780px;"><img src="assets/img/panel-home.png" alt="" /></div>
+      <div class="panel" id="s4-focus" style="left:360px; top:100px; width:495px; height:880px;">
+        <img src="assets/img/panel-focus.png" alt="" />
+        <div class="abs" id="s4-flash" style="left:3.5%; top:35.8%; width:85.3%; height:6.5%; border-radius:22px; background:rgba(255,255,255,.6); opacity:0;"></div>
+      </div>
+      <div class="ripple" id="s4-ripple" style="left:560px; top:425px; opacity:0;"></div>
+      <svg id="cursor" viewBox="0 0 56 56"><path d="M8 4 L8 42 L18 33 L25 49 L32 46 L25 31 L39 31 Z" fill="#fff" stroke="#524263" stroke-width="3.5" stroke-linejoin="round"/></svg>
+      <h2 class="abs h-lg" id="s4-title" style="left:990px; top:250px;">Study with me.</h2>
+      <p class="abs sub" id="s4-sub1" style="left:990px; top:390px;">She sits beside you with a book.</p>
+      <p class="abs sub" id="s4-sub2" style="left:990px; top:462px;">Boba on your break.</p>
+    </div>
+  </section>
+
+  <!-- ===== Scene 5: reels guard ===== -->
+  <section id="s5" class="clip" data-start="15.52" data-duration="4.3">
+    <div class="inner" id="s5i">
+      <div class="panel" id="s5-panel" style="left:150px; top:90px; width:506px; height:900px;">
+        <img src="assets/img/panel-settings.png" alt="" />
+        <div class="ring" id="s5-ring" style="left:3%; top:66.2%; width:94%; height:7.4%;"></div>
+        <div class="toggle" id="s5-toggle" style="left:76.8%; top:67.8%; width:11.8%; height:3.1%; opacity:0;"><div class="knob" id="s5-knob" style="left:4%;"></div></div>
+      </div>
+      <h2 class="abs h-lg" id="s5-title" style="left:830px; top:150px; font-size:92px;">
+        <div>She closes</div><div>Reels tabs for you.</div>
+      </h2>
+      <p class="abs sub" id="s5-sub" style="left:830px; top:400px;">One warning first.</p>
+      <p class="abs label-s" id="s5-label" style="left:830px; top:560px;">PICK HER VIBE</p>
+      <div class="abs" id="s5-chips" style="left:830px; top:620px; white-space:nowrap;">
+        <span class="chip" id="chip1">Gentle Cozy</span>
+        <span class="chip" id="chip2" style="margin-left:14px;">Sassy Bestie</span>
+        <span class="chip hot" id="chip3" style="margin-left:14px;">Drill Sergeant</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Scene 6: outro ===== -->
+  <section id="s6" class="clip" data-start="19.52" data-duration="3.48">
+    <div class="inner" id="s6i">
+      <div class="abs" id="s6-pet" style="left:170px; top:240px; width:640px;">
+        <img id="s6-pet-img" src="assets/img/dress-coquette.png" style="width:640px; display:block;" alt="" />
+      </div>
+      <h1 class="abs" id="s6-word" style="left:880px; top:270px; font-size:210px; line-height:1; font-weight:900; letter-spacing:-4px;">Cariberry</h1>
+      <div class="abs bar" id="s6-bar" style="left:890px; top:500px; width:760px;"></div>
+      <p class="abs sub" id="s6-tag" style="left:890px; top:540px; width:900px; font-size:46px;">The World's Cutest Desktop Companion &amp; Study Bestie</p>
+      <div class="abs" style="left:890px; top:720px; white-space:nowrap;">
+        <span class="pill s6p">macOS</span>
+        <span class="pill s6p" style="margin-left:12px;">Windows</span>
+        <span class="pill s6p" style="margin-left:12px;">100% on-device</span>
+      </div>
+    </div>
+  </section>
+
+  <audio id="bg-music" data-start="0" data-duration="23" data-track-index="10" data-volume="0.35" src="assets/music/bed.mp3"></audio>
+  %%SFX%%
+</div>
+
+<script>
+(function () {
+  var tl = gsap.timeline({ paused: true });
+  function pop(sel, t, o) {
+    o = o || {};
+    tl.fromTo(sel, { opacity: 0, y: o.y == null ? 36 : o.y, scale: o.s == null ? 0.82 : o.s },
+      { opacity: 1, y: 0, scale: 1, duration: o.d || 0.5, ease: o.ease || "back.out(1.5)" }, t);
+  }
+  function out(sel, t) { tl.to(sel, { opacity: 0, y: -18, duration: 0.3, ease: "power1.in" }, t); }
+  function bob(sel, t, n, amp) {
+    tl.to(sel, { y: -(amp || 10), duration: 0.5, yoyo: true, repeat: n * 2 - 1, ease: "sine.inOut" }, t);
+  }
+
+  // ---- Scene 1: hook (0 - 3.02)
+  tl.fromTo("#s1-brand", { opacity: 0, x: -20 }, { opacity: 1, x: 0, duration: 0.5, ease: "power2.out" }, 0.05);
+  tl.fromTo(".s1w", { opacity: 0, y: 70, scale: 0.88 }, { opacity: 1, y: 0, scale: 1, duration: 0.5, ease: "back.out(1.6)", stagger: 0.11 }, 0.2);
+  tl.fromTo("#s1-pet", { opacity: 0, y: 160, scale: 0.8 }, { opacity: 1, y: 0, scale: 1, duration: 0.8, ease: "back.out(1.5)" }, 0.4);
+  bob("#s1-pet-img", 1.3, 2, 10);
+  out("#s1i", 3.02);
+
+  // ---- Scene 2: 8 animals (3.02 - 7.52) -- beat-grid: pairs at 3.52 / 4.02 / 4.53 / 5.03
+  pop("#s2-title", 3.1, { d: 0.55 });
+  pop("#s2-sub", 3.3, { y: 20, s: 0.95, d: 0.5, ease: "power2.out" });
+  var pairT = [3.52, 4.02, 4.53, 5.03];
+  for (var i = 0; i < 8; i++) {
+    pop("#t2-" + i, pairT[i >> 1] + (i % 2) * 0.07, { y: 50, s: 0.7, d: 0.5 });
+    bob("#t2-" + i + " img", 5.6 + (i % 4) * 0.12, 2, 8);
+  }
+  out("#s2i", 7.52);
+
+  // ---- Scene 3: dress her up (7.52 - 11.52) -- beat-grid: 8.02 .. 10.52
+  tl.fromTo("#s3-panel", { opacity: 0, x: -280, rotation: -9 }, { opacity: 1, x: 0, rotation: -3, duration: 0.65, ease: "power3.out" }, 7.55);
+  pop("#s3-title", 7.7, { d: 0.55 });
+  pop("#s3-sub", 7.95, { y: 20, s: 0.95, d: 0.5, ease: "power2.out" });
+  for (var j = 0; j < 6; j++) {
+    pop("#t3-" + j, 8.02 + j * 0.5, { y: 50, s: 0.7, d: 0.5 });
+  }
+  out("#s3i", 11.52);
+
+  // ---- Scene 4: study with me (11.52 - 15.52)
+  tl.fromTo("#s4-home", { opacity: 0, y: 140, rotation: -10 }, { opacity: 1, y: 0, rotation: -5, duration: 0.65, ease: "power3.out" }, 11.58);
+  tl.fromTo("#s4-focus", { opacity: 0, y: 160, rotation: 4 }, { opacity: 1, y: 0, rotation: 1.5, duration: 0.7, ease: "power3.out" }, 11.72);
+  pop("#s4-title", 11.9, { d: 0.55 });
+  pop("#s4-sub1", 12.3, { y: 20, s: 0.95, d: 0.5, ease: "power2.out" });
+  // simulated click on "Start 25 min focus"
+  tl.fromTo("#cursor", { x: 1000, y: 820, opacity: 0 }, { x: 590, y: 456, opacity: 1, duration: 0.9, ease: "power2.inOut" }, 12.6);
+  tl.to("#cursor", { scale: 0.86, duration: 0.08, ease: "power1.in", transformOrigin: "8px 4px" }, 13.52);
+  tl.to("#cursor", { scale: 1, duration: 0.18, ease: "power2.out" }, 13.6);
+  tl.fromTo("#s4-flash", { opacity: 0 }, { opacity: 1, duration: 0.1, yoyo: true, repeat: 1 }, 13.55);
+  tl.fromTo("#s4-ripple", { opacity: 0.9, scale: 0.3 }, { opacity: 0, scale: 3.4, duration: 0.7, ease: "power2.out" }, 13.55);
+  pop("#s4-sub2", 13.75, { y: 20, s: 0.95, d: 0.5, ease: "power2.out" });
+  tl.to("#cursor", { opacity: 0, duration: 0.3 }, 14.5);
+  out("#s4i", 15.52);
+
+  // ---- Scene 5: reels guard (15.52 - 19.52) -- chip 3 beat-locked: 18.52
+  tl.fromTo("#s5-panel", { opacity: 0, x: -260, rotation: -8 }, { opacity: 1, x: 0, rotation: -2, duration: 0.65, ease: "power3.out" }, 15.58);
+  pop("#s5-title", 15.78, { d: 0.55 });
+  tl.fromTo("#s5-ring", { opacity: 0, scale: 1.12 }, { opacity: 1, scale: 1, duration: 0.4, ease: "power2.out" }, 16.1);
+  tl.set("#s5-toggle", { opacity: 1 }, 16.3);
+  tl.fromTo("#s5-knob", { left: "4%" }, { left: "50%", duration: 0.25, ease: "power2.out" }, 16.3);
+  pop("#s5-sub", 16.6, { y: 20, s: 0.95, d: 0.5, ease: "power2.out" });
+  pop("#s5-label", 17.2, { y: 14, s: 1, d: 0.4, ease: "power2.out" });
+  pop("#chip1", 17.52, { y: 30, s: 0.8, d: 0.45 });
+  pop("#chip2", 18.02, { y: 30, s: 0.8, d: 0.45 });
+  pop("#chip3", 18.52, { y: 30, s: 0.8, d: 0.45 });  // beat-locked: 18.52s
+  out("#s5i", 19.52);
+
+  // ---- Scene 6: outro (19.52 - 23.0) -- wordmark beat-locked: 20.02
+  tl.fromTo("#s6-pet", { opacity: 0, y: 120, scale: 0.85 }, { opacity: 1, y: 0, scale: 1, duration: 0.7, ease: "back.out(1.5)" }, 19.6);
+  bob("#s6-pet-img", 21.0, 2, 10);
+  tl.fromTo("#s6-word", { opacity: 0, scale: 1.18, y: 10 }, { opacity: 1, scale: 1, y: 0, duration: 0.45, ease: "power4.out" }, 20.02);  // beat-locked: 20.02s
+  tl.fromTo("#s6-bar", { opacity: 0, scaleX: 0, transformOrigin: "0% 50%" }, { opacity: 1, scaleX: 1, duration: 0.5, ease: "power3.out" }, 20.2);
+  pop("#s6-tag", 20.4, { y: 20, s: 0.97, d: 0.5, ease: "power2.out" });
+  tl.fromTo(".s6p", { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.4, ease: "power2.out", stagger: 0.18 }, 21.0);
+
+  // ---- Audio-reactive: bass swells the background glows (subtle)
+  function react(f) {
+    var d = AUDIO_DATA.frames[f]; if (!d) return;
+    gsap.set("#glow1", { scale: 1 + d[0] * 0.14, opacity: 0.5 + d[1] * 0.2 });
+    gsap.set("#glow2", { scale: 1 + d[0] * 0.1, opacity: 0.45 + d[1] * 0.2 });
+  }
+  for (var f = 0; f < AUDIO_DATA.totalFrames; f++) {
+    tl.call(react, [f], f / AUDIO_DATA.fps);
+  }
+
+  window.__timelines["main"] = tl;
+})();
+</script>
+</body>
+</html>

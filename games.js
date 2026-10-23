@@ -2,10 +2,12 @@
    ctx: sfx, hud, end({win,quality,score,label}), burst(el,color,n), pop(el,text,color), shake(el),
         diff (0 easy,1 normal,2 hard), combo(n), flash(color), power({label,cost,use(btn)}) */
 (function () {
+  let RND = Math.random;
+  const mulberry = (a) => () => { a |= 0; a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
   const $ = (h) => { const d = document.createElement('div'); d.innerHTML = h.trim(); return d.firstChild; };
-  const shuffle = (a) => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+  const shuffle = (a) => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(RND() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
   const clamp = (n, a = 0, b = 1) => Math.max(a, Math.min(b, n));
-  const ri = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
+  const ri = (a, b) => a + Math.floor(RND() * (b - a + 1));
   const pick = (arr, d) => arr[d];
 
   /* ---------- 1. Memory Match ---------- */
@@ -166,7 +168,7 @@
   function merge(stage, ctx) {
     const GOAL = pick([128, 256, 512], ctx.diff);
     let g = Array(16).fill(0), score = 0, moves = 0, over = false, prev = Array(16).fill(0), combo = 0, snap = null;
-    const addT = () => { const e = g.map((v, i) => (v ? -1 : i)).filter((i) => i >= 0); if (e.length) g[e[ri(0, e.length - 1)]] = Math.random() < .9 ? 2 : 4; };
+    const addT = () => { const e = g.map((v, i) => (v ? -1 : i)).filter((i) => i >= 0); if (e.length) g[e[ri(0, e.length - 1)]] = RND() < .9 ? 2 : 4; };
     addT(); addT();
     const ix = (d, i, j) => [i * 4 + j, j * 4 + i, i * 4 + (3 - j), (3 - j) * 4 + i][d];
     const slideLine = (l) => { const a = l.filter(Boolean), o = []; let gain = 0; for (let k = 0; k < a.length; k++) { if (a[k] === a[k + 1]) { o.push(a[k] * 2); gain += a[k] * 2; k++; } else o.push(a[k]); } while (o.length < 4) o.push(0); return [o, gain]; };
@@ -221,7 +223,7 @@
     let left = pick([40, 30, 24], ctx.diff), ok = 0, lives = 3, cur, ended = false, streak = 0;
     const word = $('<div class="q"></div>'), btns = $('<div class="sdk-pad"></div>');
     const hud = () => ctx.hud([{ t: `${left}s`, low: left <= 6 }, `Correct ${ok}`, `Lives ${lives}`]);
-    const next = () => { const w = ri(0, K - 1); let c = ri(0, K - 1); if (Math.random() < .8) while (c === w) c = ri(0, K - 1); cur = c; word.textContent = C[w][0]; word.style.color = C[c][1]; hud(); };
+    const next = () => { const w = ri(0, K - 1); let c = ri(0, K - 1); if (RND() < .8) while (c === w) c = ri(0, K - 1); cur = c; word.textContent = C[w][0]; word.style.color = C[c][1]; hud(); };
     C.forEach(([n, col], i) => { const b = $(`<button class="btn" style="border-color:${col}">${n}</button>`);
       b.onclick = () => { if (ended) return; if (i === cur) { ok++; streak++; ctx.sfx('good', streak); ctx.combo(streak); ctx.pop(word, '+1', C[cur][1]); if (streak % 6 === 0) { left += 2; ctx.pop(word, '+2s', '#d6ff3d'); } } else { lives--; streak = 0; ctx.combo(0); ctx.sfx('bad'); ctx.shake(word); if (lives <= 0) return fin(); } next(); }; btns.append(b); });
     const timer = setInterval(() => { left--; if (left <= 0) fin(); else hud(); }, 1000);
@@ -389,4 +391,5 @@
     { id: 'rush', name: 'Target Rush', icon: ICON.rush, color: '#4fd1e0', art: 'rings', tag: 'Speed', time: '30 sec', desc: 'Hit targets before they vanish.', how: 'Targets pop up and shrink. Tap them before the ring closes. Build combos. Run out of lives and the round ends.', mount: rush },
     { id: 'recall', name: 'Number Recall', icon: ICON.recall, color: '#ff7aa8', art: 'lines', tag: 'Memory', time: '2 min', desc: 'Memorize a number, then type it.', how: 'A number flashes briefly. Type it back from memory. Each success adds one digit.', mount: recall },
   ];
+  GAMES.forEach((g) => { const m = g.mount; g.mount = (stage, ctx) => { RND = ctx.seed != null ? mulberry(ctx.seed) : Math.random; return m(stage, ctx); }; });
 })();

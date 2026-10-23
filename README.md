@@ -129,3 +129,6 @@ Static puzzle-rewards site (no build step). Run: `python3 -m http.server 8000` a
 
 Before real launch: progress/coupons/payouts live in localStorage, so add a backend (auth, server-side
 XP validation, coupon inventory, payout review), real ad IDs, a consent banner, and lawyer-reviewed Terms/Privacy.
+
+## Versus (friend duels)
+`versus.js` runs rooms over WebRTC using the free PeerJS broker (unpkg + 0.peerjs.com), falling back to same-device tabs. For production reliability host your own PeerJS server or move rooms to the planned backend. `avatar.js` is the character builder; logo assets live in `assets/`.
