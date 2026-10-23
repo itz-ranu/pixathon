@@ -48,11 +48,23 @@
 
   /* ================= STATE ================= */
   const KEY = 'pixaquest.v1', OLD_KEY = 'pixaton.v1';
-  const fresh = () => ({ name: 'Player', xp: 0, coins: 0, played: 0, streak: 0, lastDay: '', days: [], best: {}, claimed: {}, claims: [], dailyDone: '', bonusDay: '', last: '', coupons: [], seen: {}, promos: {}, q: { day: '', plays: 0, wins: 0, xp: 0, claimed: {} }, week: { id: '', xp: 0 }, sound: true, ads: 0 });
+  const fresh = () => ({ name: 'Player', xp: 0, coins: 0, played: 0, streak: 0, lastDay: '', days: [], best: {}, claimed: {}, claims: [], dailyDone: '', bonusDay: '', last: '', coupons: [], seen: {}, promos: {}, q: { day: '', plays: 0, wins: 0, xp: 0, claimed: {} }, week: { id: '', xp: 0 }, sound: true, haptics: true, ads: 0, onboarded: false, ach: {}, stars3: 0, qdone: 0 });
   let S;
   try { S = Object.assign(fresh(), JSON.parse(localStorage.getItem(KEY) || localStorage.getItem(OLD_KEY) || '{}')); } catch { S = fresh(); }
   S.claims = S.claims.filter((c) => { if (c.code) { S.coupons.push({ id: 'm' + Math.random().toString(36).slice(2, 8), title: c.title, code: c.code, value: 200, used: false }); return false; } return true; });
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch {} };
+  const ACH = [
+    { id: 'first', t: 'First win', d: 'Win any puzzle', ok: () => S.played >= 1 },
+    { id: 's3', t: 'On a roll', d: '3-day streak', ok: () => effStreak() >= 3 },
+    { id: 's7', t: 'Unstoppable', d: '7-day streak', ok: () => effStreak() >= 7 },
+    { id: 'l5', t: 'Sharp mind', d: 'Reach level 5', ok: () => levelOf(S.xp) >= 5 },
+    { id: 'l10', t: 'Brainiac', d: 'Reach level 10', ok: () => levelOf(S.xp) >= 10 },
+    { id: 'all', t: 'Explorer', d: 'Try every puzzle', ok: () => GAMES.every((g) => S.best[g.id] !== undefined) },
+    { id: 'perf', t: 'Flawless', d: 'Earn 3 stars five times', ok: () => S.stars3 >= 5 },
+    { id: 'q', t: 'Quest runner', d: 'Finish 10 quests', ok: () => S.qdone >= 10 },
+    { id: 'coin', t: 'Saver', d: 'Hold 500 coins', ok: () => S.coins >= 500 },
+  ];
+  function checkAch() { ACH.forEach((a) => { if (!S.ach[a.id] && a.ok()) { S.ach[a.id] = 1; S.coins += 20; toast(`Achievement: ${a.t} (+20 coins)`); } }); }
 
   const thr = (n) => 30 * n * (n - 1);
   const levelOf = (xp) => { let n = 1; while (xp >= thr(n + 1)) n++; return n; };
@@ -70,7 +82,7 @@
 
   /* ================= SOUND & FX ================= */
   let ac;
-  const vib = (n) => { try { navigator.vibrate && navigator.vibrate(n); } catch {} };
+  const vib = (n) => { try { S.haptics && navigator.vibrate && navigator.vibrate(n); } catch {} };
   function sfx(kind, i = 0) {
     if (kind === 'good') vib(15); else if (kind === 'bad') vib([30, 40, 30]);
     if (!S.sound) return;
@@ -84,14 +96,24 @@
     } catch {}
   }
   const cv = $('#fx'), cx = cv.getContext('2d'); let parts = [], raf = 0;
-  function confetti(n = 100) {
+  const CONF = ['#d6ff3d', '#f1efe9', '#5aa9ff', '#ff7aa8'];
+  function confetti(n = 100, ox = innerWidth / 2, oy = innerHeight / 3, cols = CONF, spread = 16) {
     if (matchMedia('(prefers-reduced-motion:reduce)').matches) return;
-    cv.width = innerWidth; cv.height = innerHeight;
-    const cols = ['#d6ff3d', '#f1efe9', '#5aa9ff', '#ff7aa8'];
-    for (let i = 0; i < n; i++) parts.push({ x: innerWidth / 2, y: innerHeight / 3, vx: (Math.random() - .5) * 16, vy: Math.random() * -14 - 3, s: 5 + Math.random() * 5, c: cols[i % 4], r: Math.random() * 6, life: 90 + Math.random() * 40 });
+    if (cv.width !== innerWidth || cv.height !== innerHeight) { cv.width = innerWidth; cv.height = innerHeight; }
+    for (let i = 0; i < n; i++) parts.push({ x: ox, y: oy, vx: (Math.random() - .5) * spread, vy: Math.random() * -spread * .85 - 2, s: 4 + Math.random() * 5, c: cols[i % cols.length], r: Math.random() * 6, life: 70 + Math.random() * 40 });
     if (!raf) raf = requestAnimationFrame(tick);
     clearTimeout(confetti.t); confetti.t = setTimeout(() => { parts = []; raf = 0; cv.width = 1; }, 3500);
   }
+  const center = (el) => { const r = el.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; };
+  function floatText(x, y, text, color) {
+    const d = document.createElement('div'); d.className = 'ftx'; d.textContent = text; d.style.left = x + 'px'; d.style.top = y + 'px'; if (color) d.style.color = color;
+    document.body.append(d); setTimeout(() => d.remove(), 900);
+  }
+  const fxApi = {
+    burst: (el, color = '#d6ff3d', n = 18) => { const [x, y] = center(el); confetti(n, x, y, [color, '#f1efe9'], 9); },
+    pop: (el, text, color) => { const [x, y] = center(el); floatText(x, y, text, color); },
+    shake: (el) => { el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake'); setTimeout(() => el.classList.remove('shake'), 320); },
+  };
   function tick() {
     cx.clearRect(0, 0, cv.width, cv.height);
     parts = parts.filter((p) => p.life-- > 0);
@@ -108,11 +130,18 @@
 
   /* ================= MODALS ================= */
   function modal(html, { onClose } = {}) {
-    const m = $('#modal'); delete m.dataset.lock; m.innerHTML = html; $('#modalOv').hidden = false;
+    const m = $('#modal'); delete m.dataset.lock; if (!m._prev) m._prev = document.activeElement; m.innerHTML = html; $('#modalOv').hidden = false;
     m._close = onClose; setTimeout(() => { const f = m.querySelector('.btn.primary,button,input'); f && f.focus(); }, 40); return m;
   }
-  function closeModal() { const m = $('#modal'); $('#modalOv').hidden = true; const c = m._close; m._close = null; c && c(); }
+  function closeModal() { const m = $('#modal'); $('#modalOv').hidden = true; const c = m._close; m._close = null; const pv = m._prev; m._prev = null; c && c(); try { pv && pv.isConnected && pv.focus(); } catch {} }
   $('#modalOv').addEventListener('click', (e) => { if (e.target.id === 'modalOv' && !$('#modal').dataset.lock) closeModal(); });
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Tab' || $('#modalOv').hidden) return;
+    const f = $$('button:not([disabled]),input,select,a[href]', $('#modal')).filter((x) => x.offsetParent !== null); if (!f.length) return;
+    const first = f[0], last = f[f.length - 1], cur = document.activeElement;
+    if (!$('#modal').contains(cur)) { e.preventDefault(); first.focus(); }
+    else if (e.shiftKey && cur === first) { e.preventDefault(); last.focus(); } else if (!e.shiftKey && cur === last) { e.preventDefault(); first.focus(); }
+  });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('#modalOv').hidden && !$('#modal').dataset.lock) closeModal(); });
 
   /* ================= ADS ================= */
@@ -146,15 +175,16 @@
   function renderTop() {
     const lvl = levelOf(S.xp), r = rankOf(lvl), a = thr(lvl), b = thr(lvl + 1);
     $('#chipCoins').textContent = S.coins; $('#chipLvl').textContent = lvl;
-    $('#lvlBadge').textContent = lvl; $('#heroRank').textContent = `${r[1]} · Level ${lvl}`;
+    $('#lvlBadge').textContent = lvl; $('#lvlBadge').style.setProperty('--p', Math.round((S.xp - a) / (b - a) * 100)); $('#heroRank').textContent = `${r[1]} · Level ${lvl}`;
     $('#xpFill').style.width = ((S.xp - a) / (b - a) * 100) + '%';
     $('#xpText').textContent = `${S.xp - a} / ${b - a} XP to level ${lvl + 1}`;
     const nm = nextMile(); $('#nextMile').textContent = nm ? `Next reward: ${nm.name} at level ${nm.lvl}` : 'All rewards claimed';
     $('#heroLine').textContent = S.played === 0 ? 'Solve your first puzzle' : `${b - S.xp} XP to level ${lvl + 1}`;
     const d = dailyGame(), done = S.dailyDone === dayStr(), last = GAMES.find((g) => g.id === S.last);
-    const cta = $('#ctaPlay'); const target = done ? (last || d) : d; cta.dataset.play = target.id;
-    cta.textContent = done ? `Play ${target.name} again` : `Play daily: ${d.name}`;
-    $('#ctaNote').textContent = done ? 'Daily bonus done. Keep climbing.' : 'Win it for double XP and coins.';
+    const cta = $('#ctaPlay'), target = done ? (last || d) : d; cta.dataset.play = target.id; cta.textContent = 'Play';
+    const fi = $('#featIcon'); fi.innerHTML = target.icon; fi.style.setProperty('--c', target.color);
+    $('#featName').textContent = done ? target.name : `Daily: ${d.name}`;
+    $('#featNote').textContent = done ? 'Daily bonus done. Keep climbing.' : 'Win it for double XP and coins';
   }
   let filter = 'All';
   function renderPlay() {
@@ -162,7 +192,7 @@
     const tags = ['All', ...new Set(GAMES.map((g) => g.tag))];
     $('#filters').innerHTML = tags.map((t) => `<button class="${t === filter ? 'on' : ''}" data-filter="${t}" aria-pressed="${t === filter}">${t}</button>`).join('');
     $('#gameGrid').innerHTML = GAMES.filter((g) => filter === 'All' || g.tag === filter).map((g) => `<button class="gcard" style="--c:${g.color}" data-play="${g.id}">
-      <span class="gi">${g.icon}</span><span><h3>${g.name}</h3><p>${g.desc}</p></span>
+      <span class="art art-${g.art}"><span class="gi">${g.icon}</span></span><span><h3>${g.name}</h3><p>${g.desc}</p></span>
       <span class="gfoot meta"><span>${g.tag} · ${g.time}</span>${g.id === d.id && !done ? '<span class="daily-t">Daily · 2×</span>' : `<span>${S.best[g.id] ? 'Best ' + S.best[g.id] : 'New'}</span>`}</span></button>`).join('');
     // bonus + streak
     const st = effStreak(), claimed = S.bonusDay === dayStr(), amt = 10 + 5 * Math.min(st, 6);
@@ -178,10 +208,13 @@
     }).join('');
   }
   function renderRewards() {
-    const lvl = levelOf(S.xp);
+    const lvl = levelOf(S.xp), nm = nextMile();
+    if (nm) { const prev = MILES.filter((m) => m.lvl < nm.lvl).pop(), lo = prev ? thr(prev.lvl) : 0, hi = thr(nm.lvl), pct = Math.max(0, Math.min(100, (S.xp - lo) / (hi - lo) * 100));
+      $('#journey').innerHTML = `<p class="meta">Next reward</p><b>${nm.name}</b><div class="bar" style="margin-top:12px"><i style="width:${pct}%"></i></div><div class="bar-meta meta"><span>Level ${lvl}</span><span>${Math.max(0, hi - S.xp).toLocaleString()} XP to level ${nm.lvl}</span></div>`; }
+    else $('#journey').innerHTML = '<b>Every milestone claimed</b><p class="sec">You did it all. More rewards are coming.</p>';
     $('#miles').innerHTML = MILES.map((m) => {
       const claimed = S.claimed[m.lvl], can = !claimed && lvl >= m.lvl;
-      return `<div class="mile ${m.type} ${can ? 'claimable' : ''} ${!claimed && !can ? 'locked' : ''}"><div class="mi">${MILE_ICON[m.type]}</div>
+      return `<div class="mile ${m.type} ${can ? 'claimable' : ''} ${claimed ? 'done' : ''} ${!claimed && !can ? 'locked' : ''}"><span class="node"></span><div class="mi">${MILE_ICON[m.type]}</div>
         <div class="mt"><b>${m.name}</b><span>${claimed ? 'Claimed' : can ? 'Ready to claim' : `${(thr(m.lvl) - S.xp).toLocaleString()} XP to go`}</span></div>
         ${can ? `<button class="btn primary sm" data-claim="${m.lvl}">Claim</button>` : `<span class="lv">Level ${m.lvl}</span>`}</div>`;
     }).join('');
@@ -210,17 +243,22 @@
   function renderProfile() {
     $('#nameIn').value = S.name;
     $('#profStats').innerHTML = [[levelOf(S.xp), 'Level'], [S.xp, 'Total XP'], [S.coins, 'Coins'], [S.played, 'Puzzles solved'], [effStreak(), 'Day streak'], [S.ads, 'Bonuses claimed']].map(([v, l]) => `<div><b>${v}</b><span>${l}</span></div>`).join('');
+    $('#ach').innerHTML = ACH.map((a) => `<div class="${S.ach[a.id] ? 'got' : 'lock'}"><b>${a.t}</b><span>${a.d}</span></div>`).join('');
     $('#claims').innerHTML = S.claims.length ? S.claims.slice().reverse().map((c) => `<div class="row"><span>${esc(c.title)}</span><span>${c.code ? `<code class="cp">${esc(c.code)}</code>` : esc(c.status)}</span></div>`).join('') : '<p class="sec">Nothing yet. Claimed rewards and redemptions show up here.</p>';
     $('#bests').innerHTML = GAMES.map((g) => `<div class="row"><span>${g.name}</span><b>${S.best[g.id] || '—'}</b></div>`).join('');
   }
   const renderers = { play: renderPlay, rewards: renderRewards, redeem: renderRedeem, ranks: renderRanks, profile: renderProfile };
   let view = 'play';
   function go(v) {
+    if (document.startViewTransition && !matchMedia('(prefers-reduced-motion:reduce)').matches && v !== view) return void document.startViewTransition(() => go2(v));
+    go2(v);
+  }
+  function go2(v) {
     ensure(); view = renderers[v] ? v : 'play'; $$('.view').forEach((e) => e.classList.toggle('on', e.id === 'view-' + view));
-    $$('#tabs button').forEach((b) => b.classList.toggle('on', b.dataset.view === view));
+    $$('#tabs button').forEach((b) => { const on = b.dataset.view === view; b.classList.toggle('on', on); on ? b.setAttribute('aria-current', 'page') : b.removeAttribute('aria-current'); });
     renderers[view](); renderTop(); history.replaceState(null, '', '#' + view); scrollTo({ top: 0 });
   }
-  const refresh = () => { ensure(); renderers[view](); renderTop(); save(); };
+  const refresh = () => { ensure(); checkAch(); renderers[view](); renderTop(); save(); };
 
   /* ================= CLAIMS ================= */
   const mkCode = (brand) => { const a = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let s = ''; for (let i = 0; i < 8; i++) s += a[Math.floor(Math.random() * a.length)]; return brand.slice(0, 3).toUpperCase() + '-' + s.slice(0, 4) + '-' + s.slice(4); };
@@ -279,7 +317,7 @@
   }
   function qclaim(id) {
     const q = QUESTS.find((x) => x.id === id); if (!q || S.q.claimed[id] || S.q[q.key] < q.goal) return;
-    S.q.claimed[id] = 1; S.coins += q.coins; sfx('win'); toast(`+${q.coins} coins`); bump(); refresh();
+    S.q.claimed[id] = 1; S.qdone++; S.coins += q.coins; sfx('win'); toast(`+${q.coins} coins`); bump(); refresh();
   }
 
   /* ================= GAME FLOW ================= */
@@ -292,12 +330,19 @@
       $('#howGo').onclick = () => { closeModal(); startGame(id, true); }; return;
     }
     stopGame(); $('#gameTitle').textContent = g.name; $('#gameHud').innerHTML = ''; $('#stage').innerHTML = '';
-    $('#gameOv').hidden = false; document.body.style.overflow = 'hidden'; S.last = g.id;
-    cleanup = g.mount($('#stage'), {
-      sfx,
-      hud: (items) => { $('#gameHud').innerHTML = items.filter(Boolean).map((i) => typeof i === 'string' ? `<span class="hud">${esc(i)}</span>` : `<span class="hud ${i.low ? 'low' : ''}">${esc(i.t)}</span>`).join(''); },
-      end: (r) => finish(g, r),
-    });
+    $('#gameOv').hidden = false; document.body.style.overflow = 'hidden'; S.last = g.id; $('.game-shell').style.setProperty('--c', g.color);
+    const stage = $('#stage'), cd = document.createElement('div'); cd.className = 'cd'; cd.setAttribute('aria-live', 'assertive'); stage.append(cd);
+    let n = 3, t; cleanup = () => clearTimeout(t);
+    const step = () => {
+      if (n > 0) { cd.textContent = n--; cd.classList.remove('pulse'); void cd.offsetWidth; cd.classList.add('pulse'); sfx('tap'); t = setTimeout(step, 520); return; }
+      stage.innerHTML = '';
+      cleanup = g.mount(stage, {
+        sfx, ...fxApi,
+        hud: (items) => { $('#gameHud').innerHTML = items.filter(Boolean).map((i) => typeof i === 'string' ? `<span class="hud">${esc(i)}</span>` : `<span class="hud ${i.low ? 'low' : ''}">${esc(i.t)}</span>`).join(''); },
+        end: (r) => finish(g, r),
+      });
+    };
+    step();
   }
   function stopGame() { if (cleanup) { try { cleanup(); } catch {} cleanup = null; } }
   function closeGame() { stopGame(); $('#gameOv').hidden = true; document.body.style.overflow = ''; }
@@ -309,31 +354,37 @@
     if (S.lastDay !== today) { S.streak = S.lastDay === dayStr(ago(1)) ? S.streak + 1 : 1; S.lastDay = today; }
     if (!S.days.includes(today)) S.days = S.days.concat(today).slice(-60);
     const mul = 1 + 0.05 * Math.min(S.streak - 1, 10);
-    let xp = r.win ? 20 + r.quality * 40 : 5 + r.quality * 10;
-    xp = Math.round(xp * mul * (isDaily ? 2 : 1)); const coins = Math.max(1, Math.round(xp / 5));
+    const stars0 = r.win ? (r.quality > .75 ? 3 : r.quality > .4 ? 2 : 1) : 0;
+    let xp = r.win ? 40 + r.quality * 80 + (stars0 === 3 ? 25 : 0) : 10 + r.quality * 20;
+    xp = Math.round(xp * mul * (isDaily ? 2 : 1)); const coins = Math.max(2, Math.round(xp / 3));
     if (isDaily) S.dailyDone = today;
     const before = levelOf(S.xp);
     const apply = (x, c) => { S.xp += x; S.coins += c; S.week.xp += x; S.q.xp += x; };
     apply(xp, coins); S.q.plays++; if (r.win) { S.played++; S.q.wins++; }
-    if (!S.best[g.id] || r.score > S.best[g.id]) S.best[g.id] = r.score;
-    save();
-    let boosted = false;
+    const newBest = r.win && (!S.best[g.id] || r.score > S.best[g.id]); if (!S.best[g.id] || r.score > S.best[g.id]) S.best[g.id] = r.score;
+    const nStars = stars0; if (nStars === 3) S.stars3++;
+    checkAch(); save();
+    let boosted = false, luShown = false;
     const show = () => {
       const after = levelOf(S.xp), up = after > before, rk = rankOf(after), b = thr(after + 1), mult = boosted ? 2 : 1;
       const newly = MILES.filter((m) => m.lvl > before && m.lvl <= after && !S.claimed[m.lvl]);
       $('#gameOv').hidden = true;
-      if (r.win) { sfx('win'); confetti(up ? 200 : 70); }
+      if (up && !luShown) { luShown = true; sfx('win'); confetti(220); const mm = modal(`<div class="lu-badge">${after}</div><p class="meta">Level up</p><h2>${rk[1]}</h2><p>${newly.length ? 'Reward unlocked: ' + esc(newly[0].name) : 'Keep going. Your next reward is closer.'}</p><div class="acts"><button class="btn primary" id="luGo">Continue</button></div>`); mm.classList.add('c'); mm.dataset.lock = '1'; $('#luGo').onclick = () => { delete mm.dataset.lock; mm.classList.remove('c'); closeModal(); show(); }; return; }
+      if (r.win && !up) { sfx('win'); confetti(70); }
       const toGo = b - S.xp;
-      const m = modal(`<p class="meta">${r.win ? 'Puzzle solved' : 'Round over'}${r.label ? ' · ' + esc(r.label) : ''}</p>
+      const m = modal(`<p class="meta">${r.win ? 'Puzzle solved' : 'Round over'}${r.label ? ' · ' + esc(r.label) : ''}${newBest ? '<span class="tag-best">New best</span>' : ''}</p>
+        ${r.win ? `<div class="stars" aria-label="${nStars} of 3 stars">${[1, 2, 3].map((i) => `<svg viewBox="0 0 24 24" class="${i <= nStars ? 'on' : ''}" fill="currentColor"><path d="M12 2l3 6.5 7 .8-5.2 4.8 1.5 7L12 17.5 5.700 21l1.500-7L2 9.300l7-.8z"/></svg>`).join('')}</div>` : ''}
         <div class="res-xp" id="rx">0</div><p style="margin-top:0">XP earned${isDaily ? ' (daily 2×)' : ''}</p>
-        <div class="res-rows"><div><span>Coins</span><b>+${coins * mult}</b></div><div><span>Streak</span><b>${S.streak} day${S.streak > 1 ? 's' : ''}${mul > 1 ? ' (+' + Math.round((mul - 1) * 100) + '% XP)' : ''}</b></div><div><span>Next level</span><b>${toGo} XP</b></div></div>
+        <div class="res-rows">${nStars === 3 ? '<div><span>Perfect bonus</span><b>+25 XP</b></div>' : ''}<div><span>Coins</span><b>+${coins * mult}</b></div><div><span>Streak</span><b>${S.streak} day${S.streak > 1 ? 's' : ''}${mul > 1 ? ' (+' + Math.round((mul - 1) * 100) + '% XP)' : ''}</b></div><div><span>Next level</span><b>${toGo} XP</b></div></div>
         ${up ? `<div class="lvup">Level ${after} reached: ${rk[1]}</div>` : ''}
         ${newly.length ? `<div class="lvup">Reward unlocked: ${esc(newly[0].name)}</div>` : ''}
         <div class="acts"><button class="btn primary" id="again">Play again</button>
         ${boosted ? '' : '<button class="btn" id="dbl">Watch ad to double rewards</button>'}
+        <button class="btn ghost" id="shr">Share result</button>
         <button class="btn ghost" id="home">${newly.length ? 'Claim reward' : 'Back to puzzles'}</button></div>`);
       m.dataset.lock = '1'; countUp($('#rx'), xp * mult);
       const dbl = $('#dbl'); if (dbl) dbl.onclick = () => { delete m.dataset.lock; closeModal(); showAd({ rewarded: true }, (ok) => { if (ok) { apply(xp, coins); boosted = true; save(); bump(); } show(); }); };
+      $('#shr').onclick = () => shareText(`I ${r.win ? 'solved' : 'played'} ${g.name} on Pixaquest and earned ${xp * mult} XP. Can you beat me?`);
       $('#again').onclick = () => { closeModal(); sinceAd++; maybeInterstitial(() => startGame(g.id)); };
       $('#home').onclick = () => { closeModal(); closeGame(); sinceAd++; maybeInterstitial(() => go(newly.length ? 'rewards' : 'play')); };
       renderTop(); bump();
@@ -341,6 +392,25 @@
     show();
   }
   function maybeInterstitial(next) { if (sinceAd >= CONFIG.interstitialEvery) { sinceAd = 0; showAd({ rewarded: false, secs: 3 }, () => next()); } else next(); }
+
+  async function shareText(text) {
+    const url = location.origin + location.pathname;
+    try { if (navigator.share) { await navigator.share({ title: 'Pixaquest', text, url }); return; } await navigator.clipboard.writeText(text + ' ' + url); toast('Link copied'); } catch {}
+  }
+  function settings() {
+    const row = (k, t, d) => `<div class="setrow"><span>${t}<small>${d}</small></span><button class="sw ${S[k] ? 'on' : ''}" role="switch" aria-checked="${!!S[k]}" aria-label="${t}" data-set="${k}"></button></div>`;
+    modal(`<h2>Settings</h2>${row('sound', 'Sound', 'Game and reward sounds')}${row('haptics', 'Vibration', 'Feedback on phones')}
+      <div class="acts"><button class="btn ghost" id="shApp">Invite a friend</button><button class="btn primary" data-close>Done</button></div>`);
+    $('#shApp').onclick = () => shareText('I am training my brain and earning rewards on Pixaquest. Try it!');
+  }
+  function onboarding(done) {
+    const m = modal(`<div class="welcome"><p class="meta">Welcome</p><h2>Train your brain. Earn rewards.</h2>
+      <ul><li><b>1</b>Solve puzzles to earn XP and coins.</li><li><b>2</b>Level up to unlock coupons and cash rewards.</li><li><b>3</b>Spend coupons on the reward you want.</li></ul>
+      <label class="sec" for="obName">Pick a display name</label><input id="obName" maxlength="16" value="${S.name === 'Player' ? '' : esc(S.name)}" placeholder="Player" autocomplete="nickname">
+      <div class="acts"><button class="btn primary" id="obGo">Start with 25 free coins</button></div></div>`, { onClose: () => { if (!S.onboarded) { S.onboarded = true; save(); } done(); } });
+    m.dataset.lock = '1';
+    $('#obGo').onclick = () => { S.name = ($('#obName').value.trim() || 'Player').slice(0, 16); if (!S.onboarded) { S.onboarded = true; S.coins += 25; save(); } delete m.dataset.lock; closeModal(); refresh(); bump(); };
+  }
 
   /* ================= CONSENT ================= */
   const CK = 'pixaquest.consent';
@@ -363,6 +433,7 @@
     else if (d.reward) redeemUI(null, d.reward);
     else if (d.do) { const [ci, ri] = d.do.split('|'); redeemUI(ci, ri); }
     else if (d.consent) setConsent(d.consent);
+    else if (d.set) { S[d.set] = !S[d.set]; t.classList.toggle('on', S[d.set]); t.setAttribute('aria-checked', !!S[d.set]); save(); if (S[d.set]) sfx('tap'); }
     else if (d.play) startGame(d.play);
     else if (d.claim) claim(d.claim);
     else if (d.buy) buy(d.buy);
@@ -375,7 +446,9 @@
   $('#resetBtn').onclick = () => { if (confirm('Erase all progress, coins and rewards on this device?')) { S = fresh(); ensure(); save(); go('play'); toast('Progress reset'); } };
   $('#promoF').addEventListener('submit', (e) => { e.preventDefault(); promo($('#promoIn').value); $('#promoIn').value = ''; });
   $('#cookieBtn').onclick = consentBanner;
-  if (getConsent() === null) setTimeout(consentBanner, 1200);
+  $('#setBtn').onclick = settings;
+  const askConsent = () => { if (getConsent() === null) setTimeout(consentBanner, 800); };
+  if (!S.onboarded) setTimeout(() => onboarding(askConsent), 400); else askConsent();
   $('#yr').textContent = new Date().getFullYear();
   addEventListener('hashchange', () => { const v = location.hash.slice(1); if (v in renderers && v !== view) go(v); });
   if ('serviceWorker' in navigator && location.protocol.startsWith('http') && location.hostname !== 'localhost') navigator.serviceWorker.register('sw.js').catch(() => {});

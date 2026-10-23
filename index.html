@@ -38,6 +38,7 @@
     <div class="chips">
       <div class="chip" id="chipCoinBox" title="Coins"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><path d="M12 8v8"/></svg><b id="chipCoins">0</b></div>
       <div class="chip" title="Level">Lv <b id="chipLvl">1</b></div>
+      <button class="chip icon" id="setBtn" aria-label="Settings"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg></button>
     </div>
   </div>
 </header>
@@ -54,9 +55,10 @@
           </div>
           <div class="bar" aria-label="XP progress"><i id="xpFill"></i></div>
           <div class="bar-meta meta"><span id="xpText"></span><span id="nextMile"></span></div>
-          <div class="today-cta">
+          <div class="feat">
+            <span class="gi" id="featIcon"></span>
+            <div class="feat-t"><b id="featName"></b><span class="meta" id="featNote"></span></div>
             <button class="btn primary lg" id="ctaPlay">Play</button>
-            <span class="sec" id="ctaNote"></span>
           </div>
         </div>
 
@@ -78,7 +80,8 @@
   <section id="view-rewards" class="view">
     <h2 class="h2">Milestone rewards</h2>
     <p class="lead">Reach the level to unlock. Coupons go to your wallet on the Redeem page. Cash rewards are reviewed before payout.</p>
-    <div class="miles" id="miles"></div>
+    <div class="panel journey" id="journey"></div>
+    <div class="miles track" id="miles"></div>
 
     <div class="ad ad-inline" data-ad="rewards"></div>
   </section>
@@ -120,6 +123,8 @@
       <input id="nameIn" maxlength="16" autocomplete="nickname">
       <div class="stats" id="profStats"></div>
     </div>
+    <h2 class="h2">Achievements</h2>
+    <div class="ach" id="ach"></div>
     <h2 class="h2">Activity</h2>
     <div class="panel" id="claims"></div>
     <h2 class="h2">Best scores</h2>
