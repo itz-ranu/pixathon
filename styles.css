@@ -717,3 +717,23 @@ html[lang=ar] .avg h4,html[lang=hi] .avg h4{text-transform:none}
 .ttt{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;width:min(100%,320px);margin:0 auto}
 .ttt-c{aspect-ratio:1;border-radius:14px;border:1px solid var(--line);background:var(--s2);color:var(--tx);font:700 2.5rem var(--f-disp);cursor:pointer}
 .ttt-c.X{color:#ff9f6b}.ttt-c.O{color:#5aa9ff}.ttt-c.hit{background:var(--ac);color:var(--ac-ink)}.ttt-c.hint{outline:3px solid var(--ac)}
+
+/* viral games */
+.snk.flp,.snk.stk{width:min(100%,340px);aspect-ratio:3/4;cursor:pointer}
+.snk.dino{width:min(100%,480px);aspect-ratio:12/5;cursor:pointer}
+.mole-g{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;width:min(100%,330px);margin:0 auto}
+.mole-h{aspect-ratio:1;border-radius:50%;border:1px solid var(--line);background:radial-gradient(circle at 50% 70%,#2a1f14,var(--s2));font-size:0;cursor:pointer;display:grid;place-items:center;padding:0}
+.mole-h span{font-size:2.5rem;transform:translateY(60%) scale(.4);opacity:0;transition:transform .12s,opacity .12s}
+.mole-h.up span{transform:none;opacity:1}.mole-h.bomb{background:radial-gradient(circle at 50% 70%,#3a1414,var(--s2))}
+.rx{display:grid;place-items:center;width:min(100%,420px);height:260px;margin:0 auto;border-radius:18px;border:1px solid var(--line);font:700 1.5rem var(--f-disp);color:#fff;cursor:pointer;background:var(--s2)}
+.rx.wait{background:#c0392b}.rx.go{background:#2f9e75}.rx.early{background:#b8902c}.rx.idle{color:var(--tx)}
+
+/* banner art */
+.art{height:112px;background-image:none!important}
+.art .bn{position:absolute;inset:0;width:100%;height:100%;font-family:var(--f-disp)}
+.art .gi{position:absolute;inset-inline-start:8px;bottom:8px;width:34px;height:34px;border-radius:10px;background:rgba(14,16,19,.55);backdrop-filter:blur(6px);border:1px solid color-mix(in srgb,var(--c) 55%,transparent);color:#fff;display:grid;place-items:center}
+.art .gi svg{width:18px;height:18px}
+.gcard:hover .art .bn{transform:scale(1.06)}.art .bn{transition:transform .4s var(--ease)}
+@media (max-width:760px){.art{height:88px}}
+.snk.slc,.snk.brk{width:min(100%,340px);aspect-ratio:3/4;cursor:crosshair}
+.snk.blk{width:min(100%,312px);aspect-ratio:312/432}

@@ -1,4 +1,4 @@
-/* Eighteen puzzle games. Each mount(stage, ctx) returns a cleanup fn.
+/* Twenty-six puzzle games. Each mount(stage, ctx) returns a cleanup fn.
    ctx: sfx, hud, end({win,quality,score,label}), burst(el,color,n), pop(el,text,color), shake(el),
         diff (0 easy,1 normal,2 hard), combo(n), flash(color), power({label,cost,use(btn)}) */
 (function () {
@@ -501,6 +501,280 @@
     return () => { over = true; to.forEach(clearTimeout); };
   }
 
+  /* ---------- 19. Flap (Flappy-style) ---------- */
+  function flap(stage, ctx) {
+    const W = 360, VH = 480, FL = VH - 40, need = pick([5, 8, 12], ctx.diff), gap = pick([160, 140, 122], ctx.diff), PW = 56, BX = 90, R = 12;
+    let y = VH / 2, vy = 0, pipes = [], score = 0, started = false, over = false, raf, last = 0, tick = 0;
+    const cv = $(`<canvas class="snk flp" width="${W}" height="${VH}" aria-label="Flap game"></canvas>`), g = cv.getContext('2d');
+    const hud = () => ctx.hud([H('score', score), `${T('hud.goal')} ${need}`]);
+    const jump = () => { if (over) return; started = true; vy = -7.4; ctx.sfx('tap'); };
+    const addPipe = (x) => pipes.push({ x, top: ri(60, FL - gap - 60), done: false });
+    addPipe(W + 40);
+    const draw = () => {
+      g.fillStyle = '#12151b'; g.fillRect(0, 0, W, VH);
+      g.fillStyle = '#3dd6a5'; pipes.forEach((p) => { g.fillRect(p.x, 0, PW, p.top); g.fillRect(p.x, p.top + gap, PW, FL - p.top - gap); g.fillStyle = '#2f9e75'; g.fillRect(p.x - 4, p.top - 14, PW + 8, 14); g.fillRect(p.x - 4, p.top + gap, PW + 8, 14); g.fillStyle = '#3dd6a5'; });
+      g.fillStyle = '#2a2f3a'; g.fillRect(0, FL, W, VH - FL);
+      g.save(); g.translate(BX, y); g.rotate(clamp(vy / 12, -.5, 1)); g.fillStyle = '#f2d45c'; g.beginPath(); g.arc(0, 0, R, 0, 7); g.fill(); g.fillStyle = '#fff'; g.beginPath(); g.arc(5, -4, 4, 0, 7); g.fill(); g.fillStyle = '#14170a'; g.beginPath(); g.arc(6, -4, 1.8, 0, 7); g.fill(); g.fillStyle = '#ff7a3d'; g.fillRect(R - 2, 0, 8, 4); g.restore();
+    };
+    const die = () => { over = true; cancelAnimationFrame(raf); ctx.sfx('bad'); ctx.shake(cv); setTimeout(() => ctx.end({ win: score >= need, quality: clamp(score / (need * 2)), score: score * 100, label: T('flp.lbl', { n: score }) }), 600); };
+    const loop = (now) => {
+      if (over) return; const dt = Math.min((now - (last || now)) / 16.67, 2); last = now;
+      if (started) {
+        vy += .46 * dt; y += vy * dt; const sp = 2.6 * dt + Math.min(score, 20) * .02 * dt;
+        pipes.forEach((p) => { p.x -= sp; });
+        if (pipes[pipes.length - 1].x < W - 200) addPipe(W + 20); pipes = pipes.filter((p) => p.x > -PW - 10);
+        for (const p of pipes) {
+          if (!p.done && p.x + PW < BX - R) { p.done = true; score++; tick++; ctx.sfx('good', tick); ctx.combo(tick); hud(); }
+          if (BX + R > p.x && BX - R < p.x + PW && (y - R < p.top || y + R > p.top + gap)) return die();
+        }
+        if (y + R > FL || y - R < 0) return die();
+      } else y = VH / 2 + Math.sin(now / 200) * 6;
+      draw(); raf = requestAnimationFrame(loop);
+    };
+    const kd = (e) => { if (e.key === ' ' || e.key === 'ArrowUp') { e.preventDefault(); jump(); } };
+    cv.addEventListener('pointerdown', (e) => { e.preventDefault(); jump(); }); cv.style.touchAction = 'none';
+    document.addEventListener('keydown', kd);
+    stage.append(cv, $(`<p class="hint">${T('flp.hint', { n: need })}</p>`)); hud(); draw(); raf = requestAnimationFrame(loop);
+    return () => { over = true; cancelAnimationFrame(raf); document.removeEventListener('keydown', kd); };
+  }
+
+  /* ---------- 20. Dino Dash (endless runner) ---------- */
+  function dino(stage, ctx) {
+    const W = 480, VH = 200, GY = 160, goal = pick([250, 400, 600], ctx.diff), DW = 24, DH = 30;
+    let y = 0, vy = 0, obs = [], dist = 0, speed = 5, nextIn = 80, over = false, raf, last = 0, started = false;
+    const cv = $(`<canvas class="snk dino" width="${W}" height="${VH}" aria-label="Dino runner"></canvas>`), g = cv.getContext('2d');
+    const hud = () => ctx.hud([H('score', Math.floor(dist)), `${T('hud.goal')} ${goal}`]);
+    const jump = () => { if (over) return; started = true; if (y === 0) { vy = 11.2; ctx.sfx('tap'); } };
+    const draw = () => {
+      g.fillStyle = '#12151b'; g.fillRect(0, 0, W, VH); g.fillStyle = '#2a2f3a'; g.fillRect(0, GY, W, 2);
+      g.fillStyle = '#d6ff3d'; g.beginPath(); g.roundRect(50, GY - DH - y, DW, DH, 5); g.fill(); g.fillStyle = '#14170a'; g.fillRect(64, GY - DH - y + 6, 5, 5);
+      g.fillStyle = '#ff6b5e'; obs.forEach((o) => { g.beginPath(); g.roundRect(o.x, GY - o.h, o.w, o.h, 3); g.fill(); });
+    };
+    const die = () => { over = true; cancelAnimationFrame(raf); ctx.sfx('bad'); ctx.shake(cv); setTimeout(() => ctx.end({ win: dist >= goal, quality: clamp(dist / (goal * 1.6)), score: Math.floor(dist) * 10, label: T('dino.lbl', { n: Math.floor(dist) }) }), 600); };
+    const loop = (now) => {
+      if (over) return; const dt = Math.min((now - (last || now)) / 16.67, 2); last = now;
+      if (started) {
+        vy -= .62 * dt; y = Math.max(0, y + vy * dt); if (y === 0) vy = 0;
+        speed = Math.min(5 + dist / 120, 11); dist += speed * dt * .06; obs.forEach((o) => { o.x -= speed * dt; }); obs = obs.filter((o) => o.x > -50);
+        nextIn -= speed * dt; if (nextIn <= 0) { const n = ri(1, 3), w = 14 * n; obs.push({ x: W + 10, w, h: ri(26, 42) }); nextIn = ri(230, 380) * (1 + speed / 22); }
+        for (const o of obs) if (o.x < 50 + DW - 4 && o.x + o.w > 50 + 4 && y < o.h - 4) return die();
+        if (Math.floor(dist) % 50 === 0 && dist > 1 && !over) ctx.combo(Math.floor(dist / 50));
+        hud();
+      }
+      draw(); raf = requestAnimationFrame(loop);
+    };
+    const kd = (e) => { if (e.key === ' ' || e.key === 'ArrowUp' || e.key === 'w') { e.preventDefault(); jump(); } };
+    cv.addEventListener('pointerdown', (e) => { e.preventDefault(); jump(); }); cv.style.touchAction = 'none';
+    document.addEventListener('keydown', kd);
+    stage.append(cv, $(`<p class="hint">${T('dino.hint', { n: goal })}</p>`)); hud(); draw(); raf = requestAnimationFrame(loop);
+    return () => { over = true; cancelAnimationFrame(raf); document.removeEventListener('keydown', kd); };
+  }
+
+  /* ---------- 21. Whack-a-Mole ---------- */
+  function mole(stage, ctx) {
+    const need = pick([14, 20, 26], ctx.diff), every = pick([800, 650, 520], ctx.diff), life = pick([1300, 1000, 780], ctx.diff);
+    let left = 30, hits = 0, pts = 0, combo = 0, over = false, to = [], cells = [];
+    const grid = $('<div class="mole-g"></div>');
+    const hud = () => ctx.hud([H('score', pts), { t: `${left}s`, low: left <= 5 }, `${hits}/${need}`]);
+    for (let i = 0; i < 9; i++) {
+      const c = $(`<button class="mole-h" aria-label="Hole ${i + 1}"><span></span></button>`); c.state = null;
+      c.onclick = () => {
+        if (over || !c.state) return; const s = c.state; c.state = null; c.classList.remove('up', 'bomb'); c.firstChild.textContent = '';
+        if (s === 'm') { hits++; combo++; pts += 100 + Math.min(combo, 5) * 10; ctx.sfx('good', combo); ctx.combo(combo); ctx.burst(c, '#ffb454', 12); }
+        else { combo = 0; ctx.combo(0); pts = Math.max(0, pts - 150); ctx.sfx('bad'); ctx.shake(grid); ctx.pop(c, '−150', '#ff6b5e'); }
+        hud();
+      };
+      cells.push(c); grid.append(c);
+    }
+    const spawn = () => {
+      if (over) return; const free = cells.filter((c) => !c.state);
+      if (free.length) { const c = free[ri(0, free.length - 1)], bomb = RND() < .15; c.state = bomb ? 'b' : 'm'; c.firstChild.textContent = bomb ? '💣' : '🐹'; c.classList.add('up'); c.classList.toggle('bomb', bomb);
+        to.push(setTimeout(() => { if (c.state === 'm') combo = 0; c.state = null; c.classList.remove('up', 'bomb'); c.firstChild.textContent = ''; }, life)); }
+      to.push(setTimeout(spawn, every * (.7 + RND() * .6)));
+    };
+    const tm = setInterval(() => { left--; if (left <= 0) { over = true; clearInterval(tm); ctx.end({ win: hits >= need, quality: clamp(hits / (need * 1.6)), score: pts, label: T('mole.lbl', { n: hits }) }); } else hud(); }, 1000);
+    stage.append(grid, $(`<p class="hint">${T('mole.hint', { n: need })}</p>`)); hud(); spawn();
+    ctx.power({ label: T('pw.secs', { n: 8 }), cost: 12, use: () => { left += 8; hud(); } });
+    return () => { over = true; clearInterval(tm); to.forEach(clearTimeout); };
+  }
+
+  /* ---------- 22. Stack Tower ---------- */
+  function stack(stage, ctx) {
+    const W = 360, VH = 480, BH = 24, need = pick([12, 18, 25], ctx.diff), base = 150, sp0 = pick([2.2, 3, 3.8], ctx.diff);
+    let blocks = [{ x: (W - base) / 2, w: base }], cur = { x: 0, w: base }, dir = 1, over = false, raf, last = 0, perfect = 0, cap = 70;
+    const cv = $(`<canvas class="snk stk" width="${W}" height="${VH}" aria-label="Stack tower"></canvas>`), g = cv.getContext('2d');
+    const lvl = () => blocks.length - 1, col = (i) => `hsl(${(i * 14) % 360} 62% 58%)`;
+    const hud = () => ctx.hud([H('score', lvl()), `${T('hud.goal')} ${need}`]);
+    const draw = () => {
+      g.fillStyle = '#12151b'; g.fillRect(0, 0, W, VH); const top = Math.max(0, blocks.length - 12), oy = 330 - 0;
+      blocks.forEach((b, i) => { if (i < top) return; g.fillStyle = col(i); g.fillRect(b.x, oy - (i - top) * BH, b.w, BH - 2); });
+      g.fillStyle = col(blocks.length); g.fillRect(cur.x, oy - (blocks.length - top) * BH, cur.w, BH - 2);
+    };
+    const finish = () => { over = true; cancelAnimationFrame(raf); setTimeout(() => ctx.end({ win: lvl() >= need, quality: clamp(lvl() / (need * 1.4)), score: lvl() * 100 + perfect * 50, label: T('stk.lbl', { n: lvl() }) }), 500); };
+    const place = () => {
+      if (over) return; const p = blocks[blocks.length - 1], d = cur.x - p.x;
+      if (Math.abs(d) < 5) { cur.x = p.x; perfect++; ctx.sfx('good', perfect); ctx.combo(perfect); ctx.pop(cv, T('stk.perfect'), '#d6ff3d'); }
+      else { perfect = 0; ctx.combo(0); const x0 = Math.max(cur.x, p.x), x1 = Math.min(cur.x + cur.w, p.x + p.w); if (x1 - x0 <= 0) { ctx.sfx('bad'); ctx.shake(cv); draw(); return finish(); } ctx.sfx('tap'); cur = { x: x0, w: x1 - x0 }; }
+      blocks.push({ x: cur.x, w: cur.w }); hud(); if (lvl() >= cap) return finish();
+      cur = { x: dir > 0 ? 0 : W - cur.w, w: cur.w };
+    };
+    const loop = (now) => {
+      if (over) return; const dt = Math.min((now - (last || now)) / 16.67, 2); last = now;
+      cur.x += dir * (sp0 + lvl() * .09) * dt * 1.6; if (cur.x + cur.w >= W) { cur.x = W - cur.w; dir = -1; } else if (cur.x <= 0) { cur.x = 0; dir = 1; }
+      draw(); raf = requestAnimationFrame(loop);
+    };
+    const kd = (e) => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); place(); } };
+    cv.addEventListener('pointerdown', (e) => { e.preventDefault(); place(); }); cv.style.touchAction = 'none';
+    document.addEventListener('keydown', kd);
+    stage.append(cv, $(`<p class="hint">${T('stk.hint', { n: need })}</p>`)); hud(); draw(); raf = requestAnimationFrame(loop);
+    return () => { over = true; cancelAnimationFrame(raf); document.removeEventListener('keydown', kd); };
+  }
+
+  /* ---------- 23. Reaction Test ---------- */
+  function react(stage, ctx) {
+    const R = 5, goal = pick([400, 330, 270], ctx.diff);
+    let round = 0, times = [], state = 'idle', t0 = 0, to, over = false;
+    const box = $('<button class="rx" aria-live="polite"></button>');
+    const hud = () => ctx.hud([H('round', `${Math.min(round + 1, R)}/${R}`), times.length ? `${Math.round(times[times.length - 1])} ms` : '']);
+    const set = (s, cls, txt) => { state = s; box.className = 'rx ' + cls; box.textContent = txt; };
+    const ready = () => { set('wait', 'wait', T('rx.wait')); to = setTimeout(() => { set('go', 'go', T('rx.go')); t0 = performance.now(); }, ri(1200, 3800)); hud(); };
+    const done = () => {
+      over = true; const avg = times.reduce((a, b) => a + b, 0) / R;
+      ctx.end({ win: avg <= goal, quality: clamp(1 - (avg - 180) / 420), score: Math.max(0, Math.round(2000 - avg * 4)), label: T('rx.lbl', { n: Math.round(avg) }) });
+    };
+    box.onclick = () => {
+      if (over) return;
+      if (state === 'idle') ready();
+      else if (state === 'wait') { clearTimeout(to); ctx.sfx('bad'); ctx.shake(box); set('idle', 'early', T('rx.early')); }
+      else if (state === 'go') { const ms = performance.now() - t0; times.push(ms); round++; ctx.sfx('good', round); ctx.burst(box, '#3dd6a5', 14); if (round >= R) { hud(); set('idle', 'idle', `${Math.round(ms)} ms`); setTimeout(done, 700); } else { set('idle', 'idle', T('rx.res', { n: Math.round(ms) })); hud(); } }
+    };
+    set('idle', 'idle', T('rx.start')); stage.append(box, $(`<p class="hint">${T('rx.hint', { n: goal })}</p>`)); hud();
+    return () => { over = true; clearTimeout(to); };
+  }
+
+  /* ---------- 24. Fruit Slice ---------- */
+  function slice(stage, ctx) {
+    const W = 360, VH = 480, need = pick([20, 30, 40], ctx.diff), every = pick([950, 780, 620], ctx.diff), FR = ['🍉', '🍊', '🍎', '🍋', '🍇', '🍓', '🍍'], JC = ['#ff5c7a', '#ffa23d', '#ff5c5c', '#f2d45c', '#a56bff', '#ff4d6d', '#f2d45c'];
+    let items = [], bits = [], trail = [], cut = 0, pts = 0, lives = 3, left = 45, over = false, raf, last = 0, since = 0, down = false, lp = null, swipe = 0, combo = 0;
+    const cv = $(`<canvas class="snk slc" width="${W}" height="${VH}" aria-label="Fruit slice"></canvas>`), g = cv.getContext('2d');
+    const hud = () => ctx.hud([H('score', pts), { t: `${left}s`, low: left <= 8 }, '♥'.repeat(lives) || '—', `${cut}/${need}`]);
+    const launch = () => { const x = ri(60, W - 60), bomb = RND() < .14; items.push({ x, y: VH + 30, vx: (W / 2 - x) * .012 + (RND() - .5) * 1.6, vy: -(13 + RND() * 3.2), r: 28, k: bomb ? -1 : ri(0, FR.length - 1), a: 0, va: (RND() - .5) * .12 }); };
+    const fin = () => { over = true; cancelAnimationFrame(raf); clearInterval(tm); setTimeout(() => ctx.end({ win: cut >= need, quality: clamp(cut / (need * 1.5)), score: pts, label: T('slc.lbl', { n: cut }) }), 400); };
+    const hitSeg = (a, b, it) => { const dx = b.x - a.x, dy = b.y - a.y, l2 = dx * dx + dy * dy || 1, t = clamp(((it.x - a.x) * dx + (it.y - a.y) * dy) / l2), px = a.x + t * dx, py = a.y + t * dy; return Math.hypot(px - it.x, py - it.y) < it.r + 4; };
+    const doCut = (it) => {
+      it.dead = true;
+      if (it.k < 0) { lives--; combo = 0; ctx.combo(0); ctx.sfx('bad'); ctx.flash('#ff6b5e'); ctx.shake(cv); for (let i = 0; i < 14; i++) bits.push({ x: it.x, y: it.y, vx: (RND() - .5) * 10, vy: (RND() - .5) * 10, life: 1, c: '#ffb454', r: 3 }); hud(); if (lives <= 0) fin(); return; }
+      cut++; swipe++; combo++; pts += 10 * (1 + Math.floor(swipe / 2)); ctx.sfx('good', combo); ctx.combo(combo);
+      bits.push({ x: it.x, y: it.y, vx: -2.2, vy: -2, life: 1, e: FR[it.k], rot: -.05 }, { x: it.x, y: it.y, vx: 2.2, vy: -2, life: 1, e: FR[it.k], rot: .05 });
+      for (let i = 0; i < 10; i++) bits.push({ x: it.x, y: it.y, vx: (RND() - .5) * 8, vy: (RND() - .5) * 8 - 2, life: 1, c: JC[it.k], r: 2 + RND() * 3 });
+      if (swipe === 3) ctx.pop(cv, T('slc.multi'), '#ffb454'); hud(); if (cut >= need) fin();
+    };
+    const pt = (e) => { const r = cv.getBoundingClientRect(); return { x: (e.clientX - r.left) * W / r.width, y: (e.clientY - r.top) * VH / r.height }; };
+    cv.addEventListener('pointerdown', (e) => { e.preventDefault(); down = true; swipe = 0; lp = pt(e); cv.setPointerCapture && cv.setPointerCapture(e.pointerId); });
+    cv.addEventListener('pointermove', (e) => { if (!down || over) return; const p = pt(e); trail.push({ ...p, t: performance.now() }); if (lp) items.forEach((it) => { if (!it.dead && hitSeg(lp, p, it)) doCut(it); }); lp = p; });
+    const up = () => { down = false; lp = null; }; cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up); cv.style.touchAction = 'none';
+    const draw = (now) => {
+      const bg = g.createLinearGradient(0, 0, 0, VH); bg.addColorStop(0, '#1a1428'); bg.addColorStop(1, '#2a1a24'); g.fillStyle = bg; g.fillRect(0, 0, W, VH);
+      g.textAlign = 'center'; g.textBaseline = 'middle';
+      items.forEach((it) => { g.save(); g.translate(it.x, it.y); g.rotate(it.a); g.font = '52px serif'; g.fillText(it.k < 0 ? '💣' : FR[it.k], 0, 2); g.restore(); });
+      bits.forEach((b) => { g.globalAlpha = clamp(b.life); if (b.e) { g.save(); g.translate(b.x, b.y); g.rotate(b.rot * (1 - b.life) * 40); g.font = '40px serif'; g.fillText(b.e, 0, 0); g.restore(); } else { g.fillStyle = b.c; g.beginPath(); g.arc(b.x, b.y, b.r, 0, 7); g.fill(); } }); g.globalAlpha = 1;
+      trail = trail.filter((p) => now - p.t < 160);
+      for (let i = 1; i < trail.length; i++) { g.strokeStyle = `rgba(255,255,255,${1 - (now - trail[i].t) / 160})`; g.lineWidth = 5; g.lineCap = 'round'; g.beginPath(); g.moveTo(trail[i - 1].x, trail[i - 1].y); g.lineTo(trail[i].x, trail[i].y); g.stroke(); }
+    };
+    const loop = (now) => {
+      if (over) return; const dt = Math.min((now - (last || now)) / 16.67, 2); last = now; since += dt * 16.67;
+      if (since > every) { since = 0; const n = RND() < .3 ? ri(2, 3) : 1; for (let i = 0; i < n; i++) launch(); }
+      items.forEach((it) => { it.x += it.vx * dt; it.y += it.vy * dt; it.vy += .22 * dt; it.a += it.va * dt; if (it.y > VH + 40 && it.vy > 0 && !it.dead) { it.dead = true; if (it.k >= 0) combo = 0; } }); items = items.filter((it) => !it.dead);
+      bits.forEach((b) => { b.x += b.vx * dt; b.y += b.vy * dt; b.vy += .25 * dt; b.life -= .02 * dt; }); bits = bits.filter((b) => b.life > 0);
+      draw(performance.now()); raf = requestAnimationFrame(loop);
+    };
+    const tm = setInterval(() => { left--; if (left <= 0) fin(); else hud(); }, 1000);
+    stage.append(cv, $(`<p class="hint">${T('slc.hint', { n: need })}</p>`)); hud(); raf = requestAnimationFrame(loop);
+    ctx.power({ label: T('pw.life'), cost: 15, use: () => { if (lives < 5) { lives++; hud(); } } });
+    return () => { over = true; cancelAnimationFrame(raf); clearInterval(tm); };
+  }
+
+  /* ---------- 25. Brick Breaker ---------- */
+  function brick(stage, ctx) {
+    const W = 360, VH = 480, rows = pick([4, 5, 6], ctx.diff), cols = 8, bw = W / cols, bh = 20, sp0 = pick([5, 6, 7], ctx.diff), pw = pick([96, 80, 66], ctx.diff), PY = VH - 36, R = 7, PAL = ['#ff5c7a', '#ffa23d', '#f2d45c', '#3dd6a5', '#5aa9ff', '#a56bff'];
+    let bricks = [], px = W / 2, ball = { x: W / 2, y: PY - R - 2, vx: 0, vy: 0 }, launched = false, lives = 3, pts = 0, combo = 0, over = false, raf, last = 0, speed = sp0, total;
+    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) bricks.push({ x: c * bw + 2, y: 50 + r * (bh + 4), w: bw - 4, h: bh, hp: r === 0 && ctx.diff > 0 ? 2 : 1, col: PAL[r % PAL.length] });
+    total = bricks.length;
+    const cv = $(`<canvas class="snk brk" width="${W}" height="${VH}" aria-label="Brick breaker"></canvas>`), g = cv.getContext('2d');
+    const hud = () => ctx.hud([H('score', pts), '♥'.repeat(lives) || '—', `${total - bricks.length}/${total}`]);
+    const fin = (win) => { over = true; cancelAnimationFrame(raf); ctx.sfx(win ? 'win' : 'bad'); setTimeout(() => ctx.end({ win, quality: win ? clamp(.5 + lives / 6) : clamp((total - bricks.length) / total * .6), score: pts + lives * 200, label: T('brk.lbl', { n: total - bricks.length }) }), 500); };
+    const launch = () => { if (launched || over) return; launched = true; const a = (RND() - .5) * .8; ball.vx = speed * Math.sin(a); ball.vy = -speed * Math.cos(a); ctx.sfx('tap'); };
+    const draw = () => {
+      g.fillStyle = '#12151b'; g.fillRect(0, 0, W, VH);
+      bricks.forEach((b) => { g.fillStyle = b.col; g.globalAlpha = b.hp > 1 ? 1 : .85; g.beginPath(); g.roundRect(b.x, b.y, b.w, b.h, 4); g.fill(); if (b.hp > 1) { g.strokeStyle = '#fff'; g.lineWidth = 2; g.stroke(); } }); g.globalAlpha = 1;
+      g.fillStyle = '#d6ff3d'; g.beginPath(); g.roundRect(px - pw / 2, PY, pw, 12, 6); g.fill();
+      g.fillStyle = '#fff'; g.shadowColor = '#fff'; g.shadowBlur = 10; g.beginPath(); g.arc(ball.x, ball.y, R, 0, 7); g.fill(); g.shadowBlur = 0;
+    };
+    const loop = (now) => {
+      if (over) return; const dt = Math.min((now - (last || now)) / 16.67, 2); last = now;
+      if (!launched) { ball.x = px; ball.y = PY - R - 2; }
+      else {
+        ball.x += ball.vx * dt; ball.y += ball.vy * dt;
+        if (ball.x < R) { ball.x = R; ball.vx = Math.abs(ball.vx); } if (ball.x > W - R) { ball.x = W - R; ball.vx = -Math.abs(ball.vx); } if (ball.y < R) { ball.y = R; ball.vy = Math.abs(ball.vy); }
+        if (ball.vy > 0 && ball.y + R >= PY && ball.y + R <= PY + 14 && ball.x >= px - pw / 2 - R && ball.x <= px + pw / 2 + R) { const a = clamp((ball.x - px) / (pw / 2), -1, 1) * 1.05; ball.vx = speed * Math.sin(a); ball.vy = -speed * Math.cos(a); ball.y = PY - R; combo = 0; ctx.sfx('tap'); }
+        for (const b of bricks) { const nx = clamp(ball.x, b.x, b.x + b.w), ny = clamp(ball.y, b.y, b.y + b.h), dx = ball.x - nx, dy = ball.y - ny;
+          if (dx * dx + dy * dy < R * R) { if (Math.abs(dx) > Math.abs(dy)) ball.vx = -ball.vx; else ball.vy = -ball.vy; b.hp--; combo++; pts += 10 * Math.min(combo, 8); ctx.sfx('good', combo); ctx.combo(combo); if (b.hp <= 0) { bricks.splice(bricks.indexOf(b), 1); speed = Math.min(sp0 + 2.5, speed + .06); } hud(); break; } }
+        if (!bricks.length) return fin(true);
+        if (ball.y > VH + R) { lives--; combo = 0; ctx.combo(0); ctx.sfx('bad'); ctx.shake(cv); launched = false; hud(); if (lives <= 0) return fin(false); }
+      }
+      draw(); raf = requestAnimationFrame(loop);
+    };
+    const mv = (e) => { const r = cv.getBoundingClientRect(); px = clamp((e.clientX - r.left) * W / r.width, pw / 2, W - pw / 2); };
+    cv.addEventListener('pointermove', mv); cv.addEventListener('pointerdown', (e) => { e.preventDefault(); mv(e); launch(); }); cv.style.touchAction = 'none';
+    const kd = (e) => { if (e.key === 'ArrowLeft' || e.key === 'a') { e.preventDefault(); px = clamp(px - 26, pw / 2, W - pw / 2); } else if (e.key === 'ArrowRight' || e.key === 'd') { e.preventDefault(); px = clamp(px + 26, pw / 2, W - pw / 2); } else if (e.key === ' ') { e.preventDefault(); launch(); } };
+    document.addEventListener('keydown', kd);
+    stage.append(cv, $(`<p class="hint">${T('brk.hint')}</p>`)); hud(); draw(); raf = requestAnimationFrame(loop);
+    ctx.power({ label: T('pw.life'), cost: 15, use: () => { if (lives < 5) { lives++; hud(); } } });
+    return () => { over = true; cancelAnimationFrame(raf); document.removeEventListener('keydown', kd); };
+  }
+
+  /* ---------- 26. Block Drop (falling blocks) ---------- */
+  function blocks(stage, ctx) {
+    const CW = 10, CH = 18, S = 24, goal = pick([5, 8, 12], ctx.diff), base = pick([750, 560, 400], ctx.diff);
+    const SH = { I: [[0, 0, 0, 0], [1, 1, 1, 1], [0, 0, 0, 0], [0, 0, 0, 0]], O: [[1, 1], [1, 1]], T: [[0, 1, 0], [1, 1, 1], [0, 0, 0]], S: [[0, 1, 1], [1, 1, 0], [0, 0, 0]], Z: [[1, 1, 0], [0, 1, 1], [0, 0, 0]], J: [[1, 0, 0], [1, 1, 1], [0, 0, 0]], L: [[0, 0, 1], [1, 1, 1], [0, 0, 0]] };
+    const COL = { I: '#4fd1e0', O: '#f2d45c', T: '#a56bff', S: '#3dd6a5', Z: '#ff5c7a', J: '#5aa9ff', L: '#ffa23d' };
+    let board = Array.from({ length: CH }, () => Array(CW).fill('')), bag = [], cur, nxt, lines = 0, pts = 0, over = false, raf, last = 0, acc = 0, combo = 0;
+    const cv = $(`<canvas class="snk blk" width="${CW * S + 84}" height="${CH * S}" aria-label="Block drop"></canvas>`), g = cv.getContext('2d');
+    const take = () => { if (!bag.length) bag = shuffle(Object.keys(SH)); const k = bag.pop(); return { k, m: SH[k], x: Math.floor((CW - SH[k].length) / 2), y: 0 }; };
+    const rot = (m) => m[0].map((_, i) => m.map((r) => r[i]).reverse());
+    const hit = (m, x, y) => m.some((r, j) => r.some((v, i) => v && (x + i < 0 || x + i >= CW || y + j >= CH || (y + j >= 0 && board[y + j][x + i]))));
+    const hud = () => ctx.hud([H('score', pts), `${T('hud.lines')} ${lines}/${goal}`]);
+    cur = take(); nxt = take();
+    const fin = (win) => { over = true; cancelAnimationFrame(raf); ctx.sfx(win ? 'win' : 'bad'); setTimeout(() => ctx.end({ win, quality: clamp(lines / (goal * 1.3)), score: pts, label: T('blk.lbl', { n: lines }) }), 500); };
+    const lock = () => {
+      cur.m.forEach((r, j) => r.forEach((v, i) => { if (v && cur.y + j >= 0) board[cur.y + j][cur.x + i] = cur.k; }));
+      const keep = board.filter((r) => r.some((c) => !c)), n = CH - keep.length;
+      if (n) { board = [...Array.from({ length: n }, () => Array(CW).fill('')), ...keep]; lines += n; combo++; pts += [0, 100, 300, 500, 800][n] + combo * 20; ctx.sfx('good', combo); ctx.combo(combo); if (n >= 3) ctx.flash('#a56bff'); } else { combo = 0; ctx.combo(0); ctx.sfx('tap'); }
+      hud(); if (lines >= goal) return fin(true);
+      cur = nxt; nxt = take(); if (hit(cur.m, cur.x, cur.y)) fin(false);
+    };
+    const move = (dx) => { if (over || hit(cur.m, cur.x + dx, cur.y)) return; cur.x += dx; draw(); };
+    const turn = () => { if (over) return; const m = rot(cur.m); for (const k of [0, -1, 1, -2, 2]) if (!hit(m, cur.x + k, cur.y)) { cur.m = m; cur.x += k; ctx.sfx('tap'); draw(); return; } };
+    const drop = () => { if (over) return false; if (hit(cur.m, cur.x, cur.y + 1)) { lock(); return false; } cur.y++; return true; };
+    const hard = () => { if (over) return; let n = 0; while (!hit(cur.m, cur.x, cur.y + 1)) { cur.y++; n++; } pts += n * 2; lock(); draw(); };
+    const cell = (x, y, c, a = 1) => { g.globalAlpha = a; g.fillStyle = c; g.beginPath(); g.roundRect(x * S + 1, y * S + 1, S - 2, S - 2, 5); g.fill(); g.globalAlpha = 1; };
+    const draw = () => {
+      g.fillStyle = '#12151b'; g.fillRect(0, 0, cv.width, cv.height); g.fillStyle = 'rgba(255,255,255,.04)'; for (let x = 0; x < CW; x++) for (let y = 0; y < CH; y++) if ((x + y) % 2) g.fillRect(x * S, y * S, S, S);
+      board.forEach((r, y) => r.forEach((k, x) => k && cell(x, y, COL[k])));
+      if (!over) { let gy = cur.y; while (!hit(cur.m, cur.x, gy + 1)) gy++; cur.m.forEach((r, j) => r.forEach((v, i) => v && cell(cur.x + i, gy + j, COL[cur.k], .2))); cur.m.forEach((r, j) => r.forEach((v, i) => v && cell(cur.x + i, cur.y + j, COL[cur.k]))); }
+      g.fillStyle = 'rgba(255,255,255,.5)'; g.font = '600 12px sans-serif'; g.textAlign = 'center'; g.fillText(T('blk.next'), CW * S + 42, 24);
+      nxt.m.forEach((r, j) => r.forEach((v, i) => { if (v) { g.fillStyle = COL[nxt.k]; g.beginPath(); g.roundRect(CW * S + 8 + i * 18, 40 + j * 18, 16, 16, 4); g.fill(); } }));
+    };
+    const loop = (now) => { if (over) return; const dt = now - (last || now); last = now; acc += dt; const iv = Math.max(110, base - lines * 28); if (acc >= iv) { acc = 0; drop(); } draw(); raf = requestAnimationFrame(loop); };
+    const kd = (e) => { const k = e.key; if (k === 'ArrowLeft' || k === 'a') { e.preventDefault(); move(-1); } else if (k === 'ArrowRight' || k === 'd') { e.preventDefault(); move(1); } else if (k === 'ArrowUp' || k === 'w') { e.preventDefault(); turn(); } else if (k === 'ArrowDown' || k === 's') { e.preventDefault(); if (drop()) pts++; } else if (k === ' ') { e.preventDefault(); hard(); } };
+    document.addEventListener('keydown', kd);
+    const pad = $('<div class="snk-pad"><div><button aria-label="Left">◀</button><button aria-label="Rotate">⟳</button><button aria-label="Right">▶</button><button aria-label="Down">▼</button><button aria-label="Drop">⤓</button></div></div>');
+    const acts = [() => move(-1), turn, () => move(1), () => { drop(); }, hard]; [...pad.querySelectorAll('button')].forEach((b, i) => { b.onclick = acts[i]; });
+    stage.append(cv, pad, $(`<p class="hint">${T('blk.hint', { n: goal })}</p>`)); hud(); draw(); raf = requestAnimationFrame(loop);
+    ctx.power({ label: T('pw.clear'), cost: 20, use: () => { if (over) return; board = [...Array.from({ length: 4 }, () => Array(CW).fill('')), ...board.slice(0, CH - 4)]; draw(); } });
+    return () => { over = true; cancelAnimationFrame(raf); document.removeEventListener('keydown', kd); };
+  }
+
   const svg = (d) => `<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
   window.ICON = {
     memory: svg('<rect x="3" y="6" width="11" height="14" rx="2"/><rect x="10" y="4" width="11" height="14" rx="2"/>'),
@@ -521,6 +795,14 @@
     snake: svg('<path d="M5 18h9a4 4 0 000-8H9a3 3 0 010-6h9"/><circle cx="18" cy="4" r="1" fill="currentColor"/>'),
     wordle: svg('<rect x="3" y="5" width="5" height="5" rx="1"/><rect x="9.500" y="5" width="5" height="5" rx="1" fill="currentColor"/><rect x="16" y="5" width="5" height="5" rx="1"/><rect x="3" y="12" width="5" height="5" rx="1"/><rect x="9.500" y="12" width="5" height="5" rx="1"/>'),
     tictac: svg('<path d="M9 3v18M15 3v18M3 9h18M3 15h18"/><path d="M4.500 4.500l3 3M7.500 4.500l-3 3"/><circle cx="12" cy="12" r="1.800"/>'),
+    flap: svg('<circle cx="10" cy="12" r="5"/><path d="M15 11l5 1-5 1M3 18h4M19 4v5M19 16v4"/>'),
+    dino: svg('<path d="M6 20V9h6V5h6v6h-4v3h-3v6M3 20h18"/>'),
+    mole: svg('<path d="M4 20a8 8 0 0116 0z"/><circle cx="9.500" cy="12" r="1" fill="currentColor"/><circle cx="14.500" cy="12" r="1" fill="currentColor"/>'),
+    stack: svg('<rect x="7" y="15" width="10" height="5" rx="1"/><rect x="5" y="10" width="10" height="5" rx="1"/><rect x="9" y="5" width="10" height="5" rx="1"/>'),
+    react: svg('<path d="M13 3L5 14h6l-1 7 8-11h-6z"/>'),
+    slice: svg('<circle cx="11" cy="13" r="6"/><path d="M4 4l16 16M14 5c1-1 3-2 5-1"/>'),
+    brick: svg('<rect x="3" y="4" width="8" height="4" rx="1"/><rect x="13" y="4" width="8" height="4" rx="1"/><rect x="8" y="10" width="8" height="4" rx="1"/><circle cx="12" cy="18" r="1.500" fill="currentColor"/>'),
+    blocks: svg('<rect x="9" y="3" width="6" height="6" rx="1"/><rect x="3" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/><rect x="15" y="9" width="6" height="6" rx="1"/>'),
     ticket: svg('<path d="M3 9a2 2 0 002-2V6h14v1a2 2 0 002 2v2a2 2 0 000 2v2a2 2 0 00-2 2v1H5v-1a2 2 0 00-2-2v-2a2 2 0 000-2z"/><path d="M13 7v10" stroke-dasharray="2 2"/>'),
     cash: svg('<rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/>'),
     coin: svg('<circle cx="12" cy="12" r="8"/><path d="M12 8v8"/>'),
@@ -547,7 +829,53 @@
     { id: 'snake', icon: ICON.snake, color: '#8bd63d', art: 'grid', tag: 'Speed', time: 75, mount: snake },
     { id: 'wordle', icon: ICON.wordle, color: '#3dd6a5', art: 'check', tag: 'Language', time: 120, mount: wordle },
     { id: 'tictac', icon: ICON.tictac, color: '#ff9f6b', art: 'cross', tag: 'Logic', time: 60, mount: tictac },
+    { id: 'flap', icon: ICON.flap, color: '#f2d45c', art: 'rings', tag: 'Speed', time: 60, mount: flap },
+    { id: 'dino', icon: ICON.dino, color: '#d6ff3d', art: 'lines', tag: 'Speed', time: 60, mount: dino },
+    { id: 'mole', icon: ICON.mole, color: '#ffb454', art: 'dots', tag: 'Speed', time: 30, mount: mole },
+    { id: 'stack', icon: ICON.stack, color: '#ff7aa8', art: 'stripes', tag: 'Focus', time: 60, mount: stack },
+    { id: 'react', icon: ICON.react, color: '#3dd6a5', art: 'split', tag: 'Focus', time: 30, mount: react },
+    { id: 'slice', icon: ICON.slice, color: '#ff5c7a', art: 'dots', tag: 'Speed', time: 45, mount: slice },
+    { id: 'brick', icon: ICON.brick, color: '#5aa9ff', art: 'grid', tag: 'Focus', time: 120, mount: brick },
+    { id: 'blocks', icon: ICON.blocks, color: '#a56bff', art: 'check', tag: 'Logic', time: 150, mount: blocks },
   ];
+  /* ---------- banner art: one illustrated scene per game ---------- */
+  const M = (id) => {
+    const r = (x, y, w, h, o = 1, rx = 2) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="var(--c)" opacity="${o}"/>`;
+    const w = (x, y, ww, h, o = .85, rx = 2) => `<rect x="${x}" y="${y}" width="${ww}" height="${h}" rx="${rx}" fill="#fff" opacity="${o}"/>`;
+    const c = (x, y, rr, o = 1, col = 'var(--c)') => `<circle cx="${x}" cy="${y}" r="${rr}" fill="${col}" opacity="${o}"/>`;
+    const t = (x, y, str, sz = 26, col = '#fff', o = .95) => `<text x="${x}" y="${y}" font-size="${sz}" font-weight="800" text-anchor="middle" fill="${col}" opacity="${o}" font-family="inherit">${str}</text>`;
+    const grid = (n, f) => { let o = ''; for (let i = 0; i < n * n; i++) o += f(i % n, Math.floor(i / n), i); return o; };
+    const L = {
+      memory: () => `<g transform="rotate(-10 80 55)">${w(55, 22, 44, 58, .9, 6)}${r(60, 27, 34, 48, .35, 4)}</g><g transform="rotate(9 125 52)">${w(104, 20, 44, 58, .95, 6)}${c(126, 49, 11)}</g>`,
+      slide: () => grid(3, (x, y, i) => i === 8 ? '' : w(62 + x * 26, 14 + y * 26, 23, 23, .3 + (i % 3) * .2, 5) + t(73.5 + x * 26, 31 + y * 26, i + 1, 13, '#fff', .9)),
+      words: () => t(55, 66, 'A', 46) + t(100, 58, 'B', 36, 'var(--c)', 1) + t(145, 66, 'C', 46),
+      math: () => t(55, 60, '+', 44) + t(100, 66, '×', 44, 'var(--c)', 1) + t(148, 60, '=', 44) + c(100, 50, 36, .12),
+      pattern: () => c(70, 32, 17, .95, '#ff7aa8') + c(130, 32, 17, .35, '#5aa9ff') + c(70, 72, 17, .35, '#ffb454') + c(130, 72, 17, .95, '#3dd6a5'),
+      lights: () => c(100, 44, 42, .18) + c(100, 44, 26, .35) + `<path d="M100 22a17 17 0 00-9 31c2 2 2 4 2 7h14c0-3 0-5 2-7a17 17 0 00-9-31z" fill="#f2d45c"/>` + w(92, 64, 16, 5, .8) + w(94, 72, 12, 4, .8),
+      merge: () => w(34, 28, 40, 40, .35, 8) + t(54, 56, '2', 24) + w(80, 28, 40, 40, .6, 8) + t(100, 56, '4', 24) + r(126, 28, 40, 40, 1, 8) + t(146, 56, '8', 24, '#14170a'),
+      sudoku: () => grid(5, (x, y, i) => w(50 + x * 20, 8 + y * 20, 18, 18, i % 7 === 0 ? .85 : .2, 3)) + t(79, 33, '5', 13, '#14170a') + t(119, 53, '3', 13, '#14170a') + t(59, 73, '9', 13, '#14170a'),
+      stroop: () => t(70, 62, 'RED', 30, '#5aa9ff', 1) + t(138, 62, 'BLUE', 30, '#ff6b5e', 1),
+      odd: () => grid(4, (x, y, i) => w(60 + x * 22, 8 + y * 22, 19, 19, i === 6 ? 1 : .25, 5)),
+      sweep: () => grid(4, (x, y, i) => w(60 + x * 22, 8 + y * 22, 19, 19, i === 5 ? .12 : .3, 4)) + c(93, 41, 6, 1, '#ff6b5e') + t(115, 35, '2', 13, '#fff') + t(71, 57, '1', 13, '#fff'),
+      code: () => c(66, 36, 13, 1, '#ff7aa8') + c(100, 36, 13, 1, '#5aa9ff') + c(134, 36, 13, .35, '#ffb454') + c(66, 72, 7, 1, '#fff') + c(84, 72, 7, .3, '#fff') + c(102, 72, 7, .3, '#fff'),
+      rush: () => c(100, 50, 42, .2) + c(100, 50, 30, .45, '#fff') + c(100, 50, 18, .9) + c(100, 50, 6, 1, '#fff') + `<path d="M104 46l36-30" stroke="#fff" stroke-width="3" stroke-linecap="round"/>`,
+      recall: () => t(46, 62, '7', 40) + t(80, 62, '3', 40, 'var(--c)', 1) + t(114, 62, '9', 40) + t(150, 62, '?', 40, '#fff', .45),
+      wave: () => `<path d="M10 62c20 0 20-34 40-34s20 34 40 34 20-34 40-34 20 34 40 34" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" opacity=".9"/>` + w(112, 12, 6, 76, 1, 3) + c(115, 50, 10),
+      snake: () => `<path d="M20 72h70c14 0 14-26 0-26H60c-14 0-14-26 0-26h80" fill="none" stroke="var(--c)" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>` + c(140, 20, 8, 1, '#fff') + c(170, 60, 6, 1, '#ff6b5e'),
+      wordle: () => ['S', 'M', 'I', 'L', 'E'].map((ch, i) => (i === 1 ? r : w)(30 + i * 28, 30, 25, 25, i === 1 ? 1 : i === 3 ? .5 : .22, 5) + t(42.5 + i * 28, 49, ch, 17, i === 1 ? '#14170a' : '#fff')).join(''),
+      tictac: () => `<path d="M80 12v76M120 12v76M52 38h96M52 62h96" stroke="#fff" stroke-width="3.5" stroke-linecap="round" opacity=".7"/>` + t(66, 34, '✕', 20, 'var(--c)', 1) + '<circle cx="100" cy="50" r="9" fill="none" stroke="#5aa9ff" stroke-width="4"/>' + t(134, 82, '✕', 20, 'var(--c)', 1),
+      flap: () => w(30, 0, 22, 32, .5, 3) + w(30, 66, 22, 34, .5, 3) + w(150, 0, 22, 44, .5, 3) + w(150, 78, 22, 22, .5, 3) + c(96, 48, 15, 1, '#f2d45c') + c(102, 44, 4, 1, '#fff') + `<path d="M108 50l10 3-10 3z" fill="#ff7a3d"/>`,
+      dino: () => w(0, 76, 200, 3, .4, 1) + w(40, 42, 24, 34, .95, 5) + w(54, 34, 22, 16, .95, 5) + c(70, 40, 2.500, 1, '#14170a') + r(120, 52, 9, 24, 1, 3) + r(134, 60, 8, 16, 1, 3) + c(168, 22, 8, .25, '#fff'),
+      mole: () => [38, 100, 162].map((x, i) => `<ellipse cx="${x}" cy="72" rx="24" ry="9" fill="#000" opacity=".4"/>` + (i === 1 ? c(x, 52, 17, 1, '#b07a4a') + c(x - 6, 48, 2.500, 1, '#14170a') + c(x + 6, 48, 2.500, 1, '#14170a') + c(x, 56, 4, 1, '#ff9a9a') : '')).join(''),
+      stack: () => [0, 1, 2, 3, 4].map((i) => `<rect x="${[62, 70, 58, 66, 74][i]}" y="${74 - i * 14}" width="${[78, 62, 84, 66, 52][i]}" height="12" rx="3" fill="hsl(${330 + i * 22} 70% 62%)"/>`).join(''),
+      react: () => c(100, 50, 40, .25) + `<path d="M108 14L72 56h24l-6 30 38-44h-24z" fill="#fff" opacity=".95"/>`,
+      slice: () => c(90, 56, 26, 1, '#ff5c7a') + c(90, 56, 18, .35, '#fff') + `<path d="M40 90L160 14" stroke="#fff" stroke-width="4" stroke-linecap="round"/><path d="M150 70l12 4M146 82l10 8" stroke="#ff5c7a" stroke-width="3" stroke-linecap="round"/>` + c(150, 30, 12, .9, '#ffa23d'),
+      brick: () => [0, 1, 2].map((r_) => [0, 1, 2, 3, 4].map((k) => w(26 + k * 30, 10 + r_ * 14, 27, 11, .75, 3).replace('fill="#fff"', `fill="hsl(${200 + r_ * 40 + k * 6} 80% 66%)"`)).join('')).join('') + w(80, 82, 40, 6, 1, 3) + c(112, 60, 5, 1, '#fff'),
+      blocks: () => r(88, 14, 24, 24, 1, 4) + r(64, 38, 24, 24, .7, 4) + r(88, 38, 24, 24, .85, 4) + r(112, 38, 24, 24, .55, 4) + w(40, 74, 120, 12, .25, 3),
+    };
+    return (L[id] || (() => ''))();
+  };
+  GAMES.forEach((g) => { g.banner = `<svg class="bn" viewBox="0 0 200 100" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><defs><linearGradient id="bg-${g.id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="var(--c)" stop-opacity=".55"/><stop offset="1" stop-color="#0e1013"/></linearGradient><radialGradient id="gl-${g.id}"><stop offset="0" stop-color="var(--c)" stop-opacity=".6"/><stop offset="1" stop-color="var(--c)" stop-opacity="0"/></radialGradient></defs><rect width="200" height="100" fill="url(#bg-${g.id})"/><circle cx="165" cy="12" r="60" fill="url(#gl-${g.id})"/><circle cx="20" cy="95" r="45" fill="url(#gl-${g.id})" opacity=".6"/>${M(g.id)}</svg>`; });
   GAMES.forEach((g) => ['name', 'desc', 'how'].forEach((f) => Object.defineProperty(g, f, { get: () => I18N.t('g.' + g.id + '.' + f[0]) })));
   GAMES.forEach((g) => { const m = g.mount; g.mount = (stage, ctx) => { RND = ctx.seed != null ? mulberry(ctx.seed) : Math.random; return m(stage, ctx); }; });
 })();

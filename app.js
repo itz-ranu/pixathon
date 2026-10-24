@@ -205,7 +205,7 @@
     const tags = ['All', ...new Set(GAMES.map((g) => g.tag))];
     $('#filters').innerHTML = tags.map((x) => `<button class="${x === filter ? 'on' : ''}" data-filter="${x}" aria-pressed="${x === filter}">${t('tag.' + x)}</button>`).join('');
     $('#gameGrid').innerHTML = GAMES.filter((g) => filter === 'All' || g.tag === filter).map((g) => `<button class="gcard" style="--c:${g.color}" data-play="${g.id}">
-      <span class="art art-${g.art}"><span class="gi">${g.icon}</span></span><span><h3>${g.name}</h3><p>${g.desc}</p></span>
+      <span class="art art-${g.art}">${g.banner || ''}<span class="gi">${g.icon}</span></span><span><h3>${g.name}</h3><p>${g.desc}</p></span>
       <span class="gfoot meta"><span>${t('tag.' + g.tag)} · ${fmtTime(g.time)}</span>${g.id === d.id && !done ? `<span class="daily-t">${t('card.daily')}</span>` : `<span>${S.best[g.id] ? t('card.best', { n: nf(S.best[g.id]) }) : t('card.new')}</span>`}</span></button>`).join('');
     // bonus + streak
     const st = effStreak(), claimed = S.bonusDay === dayStr(), amt = 10 + 5 * Math.min(st, 6);
