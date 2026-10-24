@@ -204,9 +204,11 @@
     const d = dailyGame(), done = S.dailyDone === dayStr();
     const tags = ['All', ...new Set(GAMES.map((g) => g.tag))];
     $('#filters').innerHTML = tags.map((x) => `<button class="${x === filter ? 'on' : ''}" data-filter="${x}" aria-pressed="${x === filter}">${t('tag.' + x)}</button>`).join('');
-    $('#gameGrid').innerHTML = GAMES.filter((g) => filter === 'All' || g.tag === filter).map((g) => `<button class="gcard" style="--c:${g.color}" data-play="${g.id}">
-      <span class="art art-${g.art}">${g.banner || ''}<span class="gi">${g.icon}</span></span><span><h3>${g.name}</h3><p>${g.desc}</p></span>
-      <span class="gfoot meta"><span>${t('tag.' + g.tag)} · ${fmtTime(g.time)}</span>${g.id === d.id && !done ? `<span class="daily-t">${t('card.daily')}</span>` : `<span>${S.best[g.id] ? t('card.best', { n: nf(S.best[g.id]) }) : t('card.new')}</span>`}</span></button>`).join('');
+    const q = ($('#gSearch').value || '').trim().toLowerCase(), bdg = (g) => g.isNew ? `<i class="bdg new">${t('badge.new')}</i>` : g.hot ? `<i class="bdg hot">🔥 ${t('badge.hot')}</i>` : '';
+    $('#trend').innerHTML = GAMES.filter((g) => g.hot).map((g) => `<button class="tcard" style="--c:${g.color}" data-play="${g.id}"><span class="art">${g.banner}</span>${bdg(g)}<span class="tname"><b>${g.name}</b><span>${t('tag.' + g.tag)}</span></span><span class="tplay" aria-hidden="true">▶</span></button>`).join('');
+    $('#gameGrid').innerHTML = GAMES.filter((g) => (filter === 'All' || g.tag === filter) && (!q || g.name.toLowerCase().includes(q))).map((g) => `<button class="gcard" style="--c:${g.color}" data-play="${g.id}">
+      <span class="art art-${g.art}">${g.banner || ''}${bdg(g)}<span class="gi">${g.icon}</span><span class="tplay" aria-hidden="true">▶</span></span><span><h3>${g.name}</h3><p>${g.desc}</p></span>
+      <span class="gfoot meta"><span>${t('tag.' + g.tag)} · ${fmtTime(g.time)}</span>${g.id === d.id && !done ? `<span class="daily-t">${t('card.daily')}</span>` : `<span>${S.best[g.id] ? t('card.best', { n: nf(S.best[g.id]) }) : t('card.new')}</span>`}</span></button>`).join('') || `<p class="lead">${t('play.none')}</p>`;
     // bonus + streak
     const st = effStreak(), claimed = S.bonusDay === dayStr(), amt = 10 + 5 * Math.min(st, 6);
     let wk = ''; for (let i = 6; i >= 0; i--) { const d0 = ago(i), ds = dayStr(d0); wk += `<div class="wd ${S.days.includes(ds) ? 'on' : ''} ${i === 0 ? 'now' : ''}"><i></i>${d0.toLocaleDateString(I18N.lang, { weekday: 'narrow' })}</div>`; }
@@ -576,7 +578,7 @@
     e.preventDefault(); acctGo(ATABS[n]); const nb = $('#atab-' + ATABS[n]); nb && nb.focus();
   });
   $('#ctaPlay').addEventListener('click', () => { const id = $('#ctaPlay').dataset.play; if (id) startGame(id); });
-  document.addEventListener('input', (e) => { if (e.target.id === 'nameIn') { S.name = e.target.value.trim().slice(0, 16) || 'Player'; save(); } });
+  document.addEventListener('input', (e) => { if (e.target.id === 'gSearch') renderPlay(); if (e.target.id === 'nameIn') { S.name = e.target.value.trim().slice(0, 16) || 'Player'; save(); } });
   $('#promoF').addEventListener('submit', (e) => { e.preventDefault(); promo($('#promoIn').value); $('#promoIn').value = ''; });
   $('#cookieBtn').onclick = consentBanner;
   $('#themeBtn').onclick = () => THEME.toggle();

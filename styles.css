@@ -737,3 +737,24 @@ html[lang=ar] .avg h4,html[lang=hi] .avg h4{text-transform:none}
 @media (max-width:760px){.art{height:88px}}
 .snk.slc,.snk.brk{width:min(100%,340px);aspect-ratio:3/4;cursor:crosshair}
 .snk.blk{width:min(100%,312px);aspect-ratio:312/432}
+
+/* games UI v2 */
+.trend{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x proximity;padding:4px 2px 14px;margin:0 -2px 8px;scrollbar-width:none}.trend::-webkit-scrollbar{display:none}
+.tcard{position:relative;flex:0 0 clamp(190px,56vw,250px);aspect-ratio:16/10;border-radius:16px;overflow:hidden;border:1px solid color-mix(in srgb,var(--c) 40%,var(--line));padding:0;background:var(--s1);color:#fff;text-align:start;scroll-snap-align:start;cursor:pointer;transition:transform .25s var(--ease),box-shadow .25s}
+.tcard:hover{transform:translateY(-3px);box-shadow:0 12px 32px color-mix(in srgb,var(--c) 35%,transparent)}
+.tcard .art{position:absolute;inset:0;height:100%;border-radius:0}
+.tcard::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,transparent 45%,rgba(8,10,14,.82))}
+.tname{position:absolute;z-index:2;inset-inline:12px;bottom:10px;display:grid}.tname b{font:700 1.0625rem var(--f-disp)}.tname span{font-size:.75rem;opacity:.75}
+.tplay{position:absolute;z-index:2;inset-inline-end:10px;bottom:10px;width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:var(--c);color:#14170a;font-size:.8rem;opacity:0;transform:scale(.7);transition:.2s var(--ease)}
+.tcard:hover .tplay,.tcard:focus-visible .tplay,.gcard:hover .tplay{opacity:1;transform:none}
+.art .tplay{bottom:8px;inset-inline-end:8px;width:30px;height:30px}
+.bdg{position:absolute;z-index:3;top:8px;inset-inline-start:8px;font:800 .6875rem var(--f-disp);font-style:normal;letter-spacing:.06em;padding:3px 8px;border-radius:99px;background:#ff6b5e;color:#fff;box-shadow:0 2px 10px rgba(0,0,0,.35)}
+.bdg.new{background:#d6ff3d;color:#14170a}
+.gsearch{width:100%;max-width:360px;margin:0 0 10px;padding:11px 14px;border-radius:99px;border:1px solid var(--line);background:var(--s2);color:var(--tx);font:inherit}
+.gsearch:focus{outline:2px solid var(--ac);outline-offset:1px}
+.gcard{border-radius:18px}.gcard h3{font-family:var(--f-disp)}
+.game-shell{box-shadow:0 30px 80px rgba(0,0,0,.5),0 0 0 1px color-mix(in srgb,var(--c,#d6ff3d) 25%,transparent),0 0 60px color-mix(in srgb,var(--c,#d6ff3d) 14%,transparent)}
+.game-shell::before{content:"";position:absolute;inset:-40% -20% auto;height:70%;background:radial-gradient(closest-side,color-mix(in srgb,var(--c,#d6ff3d) 22%,transparent),transparent);pointer-events:none}
+.snk.hop,.snk.blt,.snk.bub{width:min(100%,340px);aspect-ratio:3/4;cursor:crosshair}
+.snk.road{width:min(100%,360px);aspect-ratio:360/440}
+@media (prefers-reduced-motion:reduce){.tcard,.art .bn{transition:none}}

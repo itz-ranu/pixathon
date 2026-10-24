@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Pixaquest – Solve Puzzles, Rank Up, Earn Rewards</title>
-<meta name="description" content="Twenty-six brain-sharpening puzzle games. Build a streak, climb the ranks, unlock coupons and cash milestones. Free to play.">
+<meta name="description" content="Thirty brain-sharpening puzzle games. Build a streak, climb the ranks, unlock coupons and cash milestones. Free to play.">
 <meta name="color-scheme" content="dark light">
 <meta name="theme-color" content="#0e1013">
 <meta property="og:title" content="Pixaquest – Solve Puzzles, Rank Up, Earn Rewards">
@@ -73,8 +73,12 @@
           </div>
         </div>
 
+        <div class="trend-h"><h2 class="h2" data-i18n="play.trend">Trending now</h2></div>
+        <div class="trend" id="trend"></div>
+
         <h2 class="h2" data-i18n="play.puzzles">Puzzles</h2>
         <p class="lead" data-i18n="play.lead">Pick any. Every win earns XP and coins.</p>
+        <input class="gsearch" id="gSearch" type="search" autocomplete="off" placeholder="Search games" aria-label="Search games" data-i18n-attr="placeholder:play.search;aria-label:play.search">
         <div class="filters" id="filters" role="group" aria-label="Filter puzzles" data-i18n-attr="aria-label:play.filter"></div>
         <div class="grid" id="gameGrid"></div>
         <div class="ad ad-inline" data-ad="inline"></div>
