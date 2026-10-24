@@ -117,9 +117,6 @@ project under those terms.
 *Every puzzle is a new opportunity to think differently.*
 :::
 
-git add .                 
-git commit -m "1.3 mi"
-git push origin main
 
 Static puzzle-rewards site (no build step). Run: `python3 -m http.server 8000` and open http://localhost:8000.
 
