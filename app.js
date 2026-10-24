@@ -50,11 +50,14 @@
     { id: 'xp', goal: 150, key: 'xp', coins: 30 },
   ];
   const BOTS = ['Aria', 'Kenji', 'Luna', 'Max', 'Zara', 'Omar', 'Mia', 'Leo', 'Nina', 'Raj', 'Eva', 'Sam', 'Ivy', 'Noah', 'Tara', 'Finn', 'Yuki', 'Cleo', 'Dev'];
+  const FREEZE_COST = 60, FREEZE_MAX = 2;
+  const STREAK_MS = [[3, 30], [7, 100], [14, 250], [30, 600]];
+  const FLAME = '<svg class="ic flame" viewBox="0 0 24 24" aria-hidden="true"><use href="#flameG"/></svg>';
   const MILE_ICON = { coins: ICON.coin, coupon: ICON.ticket, cash: ICON.cash };
 
   /* ================= STATE ================= */
   const KEY = 'pixaquest.v1', OLD_KEY = 'pixaton.v1';
-  const fresh = () => ({ name: 'Player', xp: 0, coins: 0, played: 0, streak: 0, lastDay: '', days: [], best: {}, claimed: {}, claims: [], dailyDone: '', bonusDay: '', last: '', coupons: [], seen: {}, promos: {}, q: { day: '', plays: 0, wins: 0, xp: 0, claimed: {} }, week: { id: '', xp: 0 }, sound: true, haptics: true, ads: 0, onboarded: false, diff: 1, spinDay: '', boost: false, ach: {}, stars3: 0, qdone: 0 });
+  const fresh = () => ({ name: 'Player', xp: 0, coins: 0, played: 0, streak: 0, lastDay: '', days: [], best: {}, claimed: {}, claims: [], dailyDone: '', bonusDay: '', last: '', coupons: [], seen: {}, promos: {}, q: { day: '', plays: 0, wins: 0, xp: 0, claimed: {} }, week: { id: '', xp: 0 }, sound: true, haptics: true, ads: 0, onboarded: false, diff: 1, spinDay: '', boost: false, ach: {}, stars3: 0, qdone: 0, freezes: 0, bestStreak: 0, sm: {}, visit: '' });
   let S;
   try { S = Object.assign(fresh(), JSON.parse(localStorage.getItem(KEY) || localStorage.getItem(OLD_KEY) || '{}')); } catch { S = fresh(); }
   S.claims = S.claims.filter((c) => { if (c.code) { S.coupons.push({ id: 'm' + Math.random().toString(36).slice(2, 8), title: c.title, code: c.code, value: 200, used: false }); return false; } return true; });
@@ -80,8 +83,14 @@
   const ago = (n) => { const d = new Date(); d.setDate(d.getDate() - n); return d; };
   const weekId = () => { const d = new Date(); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return dayStr(d); };
   const effStreak = () => (S.lastDay === dayStr() || S.lastDay === dayStr(ago(1))) ? S.streak : 0;
-  const dailyGame = () => GAMES[Math.floor(Date.now() / 864e5) % GAMES.length];
+  const dailyGame = () => { const A = GAMES.filter((g) => g.cat === 'arcade'); return A[Math.floor(Date.now() / 864e5) % A.length]; };
+  const dayDiff = (a, b) => Math.round((new Date(b + 'T00:00') - new Date(a + 'T00:00')) / 864e5);
+  const notes = [];
   const ensure = () => {
+    // a freeze quietly covers missed days, but only when it can cover all of them
+    const missed = S.lastDay && S.streak > 0 ? dayDiff(S.lastDay, dayStr()) - 1 : 0;
+    if (missed > 0 && S.freezes >= missed) { S.freezes -= missed; S.lastDay = dayStr(ago(1)); notes.push(t('streak.used', { n: S.streak })); save(); }
+    if (effStreak() > S.bestStreak) S.bestStreak = effStreak();
     if (S.week.id !== weekId()) S.week = { id: weekId(), xp: 0 };
     if (S.q.day !== dayStr()) S.q = { day: dayStr(), plays: 0, wins: 0, xp: 0, claimed: {} };
   };
@@ -192,6 +201,14 @@
     $('#xpFill').style.width = ((S.xp - a) / (b - a) * 100) + '%';
     $('#xpText').textContent = t('hero.xp', { a: nf(S.xp - a), b: nf(b - a), n: lvl + 1 });
     const nm = nextMile(); $('#nextMile').textContent = nm ? t('hero.next', { name: mname(nm), n: nm.lvl }) : t('hero.allclaimed');
+    const st = effStreak(), atRisk = st > 0 && S.lastDay !== dayStr(), cs = $('#chipStreak');
+    $('#chipStreakN').textContent = st; cs.classList.toggle('on', st > 0); cs.classList.toggle('risk', atRisk);
+    const rk = $('#risk');
+    if (atRisk) {
+      const h = Math.max(1, 24 - new Date().getHours());
+      rk.hidden = false;
+      rk.innerHTML = `${FLAME}<div><b>${t('risk.t', { n: st, h })}</b><span>${S.freezes ? t('risk.freeze') : t('risk.d')}</span></div>${!S.freezes ? `<button class="btn sm" data-freeze="1">${t('risk.buy', { n: FREEZE_COST })}</button>` : ''}`;
+    } else rk.hidden = true;
     $('#heroLine').textContent = S.played === 0 ? t('hero.first') : t('hero.togo', { n: nf(b - S.xp), l: lvl + 1 });
     const d = dailyGame(), done = S.dailyDone === dayStr(), last = GAMES.find((g) => g.id === S.last);
     const cta = $('#ctaPlay'), target = done ? (last || d) : d; cta.dataset.play = target.id;
@@ -199,14 +216,14 @@
     $('#featName').textContent = done ? target.name : t('hero.daily', { name: target.name });
     $('#featNote').textContent = S.boost ? t('hero.boost') : done ? t('hero.dailydone') : t('hero.dailytip');
   }
-  let filter = 'All';
+  let filter = 'Arcade';
   function renderPlay() {
     const d = dailyGame(), done = S.dailyDone === dayStr();
-    const tags = ['All', ...new Set(GAMES.map((g) => g.tag))];
+    const tags = ['Arcade', '3D', 'Brain'], inCat = (g) => filter === 'Arcade' ? g.cat === 'arcade' : filter === '3D' ? g.is3d : g.cat === 'brain';
     $('#filters').innerHTML = tags.map((x) => `<button class="${x === filter ? 'on' : ''}" data-filter="${x}" aria-pressed="${x === filter}">${t('tag.' + x)}</button>`).join('');
     const q = ($('#gSearch').value || '').trim().toLowerCase(), bdg = (g) => g.isNew ? `<i class="bdg new">${t('badge.new')}</i>` : g.hot ? `<i class="bdg hot">🔥 ${t('badge.hot')}</i>` : '';
-    $('#trend').innerHTML = GAMES.filter((g) => g.hot).map((g) => `<button class="tcard" style="--c:${g.color}" data-play="${g.id}"><span class="art">${g.banner}</span>${bdg(g)}<span class="tname"><b>${g.name}</b><span>${t('tag.' + g.tag)}</span></span><span class="tplay" aria-hidden="true">▶</span></button>`).join('');
-    $('#gameGrid').innerHTML = GAMES.filter((g) => (filter === 'All' || g.tag === filter) && (!q || g.name.toLowerCase().includes(q))).map((g) => `<button class="gcard" style="--c:${g.color}" data-play="${g.id}">
+    $('#trend').innerHTML = GAMES.filter((g) => g.hot && g.cat === 'arcade').map((g) => `<button class="tcard" style="--c:${g.color}" data-play="${g.id}"><span class="art">${g.banner}</span>${bdg(g)}<span class="tname"><b>${g.name}</b><span>${t('tag.' + g.tag)}</span></span><span class="tplay" aria-hidden="true">▶</span></button>`).join('');
+    $('#gameGrid').innerHTML = GAMES.filter((g) => (q ? true : inCat(g)) && (!q || g.name.toLowerCase().includes(q))).map((g) => `<button class="gcard" style="--c:${g.color}" data-play="${g.id}">
       <span class="art art-${g.art}">${g.banner || ''}${bdg(g)}<span class="gi">${g.icon}</span><span class="tplay" aria-hidden="true">▶</span></span><span><h3>${g.name}</h3><p>${g.desc}</p></span>
       <span class="gfoot meta"><span>${t('tag.' + g.tag)} · ${fmtTime(g.time)}</span>${g.id === d.id && !done ? `<span class="daily-t">${t('card.daily')}</span>` : `<span>${S.best[g.id] ? t('card.best', { n: nf(S.best[g.id]) }) : t('card.new')}</span>`}</span></button>`).join('') || `<p class="lead">${t('play.none')}</p>`;
     // bonus + streak
@@ -214,6 +231,7 @@
     let wk = ''; for (let i = 6; i >= 0; i--) { const d0 = ago(i), ds = dayStr(d0); wk += `<div class="wd ${S.days.includes(ds) ? 'on' : ''} ${i === 0 ? 'now' : ''}"><i></i>${d0.toLocaleDateString(I18N.lang, { weekday: 'narrow' })}</div>`; }
     const risk = S.lastDay === dayStr(ago(1)) && st > 0;
     $('#bonus').innerHTML = `<h3>${st ? t('bonus.streak', { n: st }) : t('bonus.start')}<span>${risk ? t('bonus.risk') : t('bonus.daily')}</span></h3><div class="week" aria-hidden="true">${wk}</div>
+      <p class="road meta">${(() => { const nx = STREAK_MS.find(([d]) => d > S.streak && !S.sm[d]); return nx ? `${FLAME} ${t('streak.road', { d: nx[0], c: nx[1] })}` : t('streak.roadall'); })()}</p>
       ${claimed ? `<button class="btn block" disabled>${t('bonus.claimed')}</button>` : `<button class="btn primary block" data-bonus="1">${t('bonus.claim', { n: amt })}</button>`}
       <button class="btn block spinbtn" data-spin="1" ${S.spinDay === dayStr() ? 'disabled' : ''}>${S.spinDay === dayStr() ? t('spin.used') : t('spin.btn')}</button>`;
     // quests
@@ -250,9 +268,9 @@
   }
   function renderRanks() {
     let x = (S.week.id.split('-').join('') | 0); const rnd = () => ((x = (x * 1664525 + 1013904223) >>> 0) / 4294967296);
-    const rows = BOTS.map((n) => ({ n, av: AVATAR.random(n), xp: Math.round(120 + rnd() * 1800) })); rows.push({ n: S.name, av: S.avatar, xp: S.week.xp, me: true });
+    const rows = BOTS.map((n) => ({ n, av: { ...AVATAR.random(n), frame: AVATAR.hash(n) % AVATAR.FRAMES.length }, xp: Math.round(120 + rnd() * 1800) })); rows.push({ n: S.name, av: S.avatar, xp: S.week.xp, me: true });
     rows.sort((a, b) => b.xp - a.xp);
-    $('#board').innerHTML = rows.slice(0, 12).concat(rows.slice(12).filter((r) => r.me)).map((r) => `<li class="${r.me ? 'me' : ''}"><span class="pos">${rows.indexOf(r) + 1}</span><span class="lav">${AVATAR.svg(r.av, 36)}</span><span class="nm">${esc(r.n)}${r.me ? ' ' + t('rk.you') : ''}</span><span class="xp">${t('u.xp', { n: nf(r.xp) })}</span></li>`).join('');
+    $('#board').innerHTML = rows.slice(0, 12).concat(rows.slice(12).filter((r) => r.me)).map((r) => `<li class="${r.me ? 'me' : ''}"><span class="pos">${rows.indexOf(r) + 1}</span><span class="lav">${AVATAR.framed(r.av, 36)}</span><span class="nm">${esc(r.n)}${r.me ? ' ' + t('rk.you') : ''}${r.me ? `<small>${t('ti.' + AVATAR.TITLES[S.avatar.title || 0].n)}</small>` : ''}</span><span class="xp">${t('u.xp', { n: nf(r.xp) })}</span></li>`).join('');
     const cur = rankOf(levelOf(S.xp));
     $('#ladder').innerHTML = RANKS.map((r) => `<div class="rung ${r[0] === cur.lvl ? 'cur' : r[0] < cur.lvl ? 'past' : ''}" style="--rc:${r[1]}"><b>${t('rank.' + r[0])}</b><span class="meta">${t('rk.lvplus', { n: r[0] })}</span></div>`).join('');
   }
@@ -296,26 +314,38 @@
           <div class="danger-zone"><div><b>${t('set.reset')}</b><small>${t('set.reset.d')}</small></div><button class="btn ghost danger sm" id="resetBtn">${t('set.reset.b')}</button></div></div>
       </div>`;
     }
+    const best = S.bestStreak, cur = effStreak(), nx = STREAK_MS.find(([d]) => d > cur);
+    let wk = ''; for (let i = 6; i >= 0; i--) { const d0 = ago(i), ds = dayStr(d0); wk += `<div class="wd ${S.days.includes(ds) ? 'on' : ''} ${i === 0 ? 'now' : ''}"><i></i>${d0.toLocaleDateString(I18N.lang, { weekday: 'narrow' })}</div>`; }
+    const ups = AVATAR.unlocks({ level: lvl, streak: best }).filter((u) => u.locked).sort((a, b) => a.left - b.left).filter((u, i, arr) => arr.findIndex((x) => x.name === u.name && x.kind === u.kind) === i).slice(0, 3);
+    const streakCard = `<div class="panel streak-card ${cur ? 'hot' : ''}"><div class="sc-top">${FLAME}<div><b>${t('bonus.streak', { n: cur })}</b><span class="meta">${t('streak.best', { n: best })}</span></div></div>
+      <div class="week" aria-hidden="true">${wk}</div>
+      ${nx ? `<div class="bar thin"><i style="width:${Math.min(100, cur / nx[0] * 100)}%"></i></div><p class="meta">${t('streak.road', { d: nx[0], c: nx[1] })}</p>` : `<p class="meta">${t('streak.roadall')}</p>`}
+      <div class="freeze"><span class="fz-i" aria-hidden="true">❄️</span><span><b>${t('streak.freeze')}</b><small>${t('streak.freeze.d')}</small></span>
+        ${S.freezes >= FREEZE_MAX ? `<span class="meta">${t('streak.freeze.max')}</span>` : `<button class="btn sm" data-freeze="1" ${S.coins < FREEZE_COST ? 'disabled' : ''}>${t('streak.freeze.buy', { n: FREEZE_COST })}</button>`}</div>
+      ${S.freezes ? `<p class="meta fz-have">${t('streak.freeze.have', { n: S.freezes })}</p>` : ''}</div>`;
+    const nextCard = `<div class="panel"><div class="sect-h" style="margin:0 0 12px"><h3>${t('next.title')}</h3><button class="btn ghost sm" data-acct="character">${t('acct.style')}</button></div>
+      ${ups.length ? ups.map((u) => `<div class="upx"><span class="up-k">${u.kind === 'pet' ? '🐾' : u.kind === 'frame' ? '◎' : u.kind === 'title' ? '✦' : '✨'}</span><b>${esc(u.name)}</b><span class="meta">${u.lvl ? t('next.lvl', { n: u.lvl }) : t('next.day', { n: u.streak })} · ${t('next.lvl.left', { n: u.left })}</span></div>`).join('') : `<p class="sec">${t('next.none')}</p>`}</div>`;
     const stats = [[lvl, 'stat.level'], [nf(S.xp), 'stat.xp'], [nf(S.coins), 'stat.coins'], [nf(S.played), 'stat.solved'], [effStreak(), 'stat.streak'], [S.ads, 'stat.bonuses']];
-    return `<div class="stats">${stats.map(([v, l]) => `<div><b>${v}</b><span>${t(l)}</span></div>`).join('')}</div>
+    return `<div class="ov-grid">${streakCard}${nextCard}</div><div class="stats">${stats.map(([v, l]) => `<div><b>${v}</b><span>${t(l)}</span></div>`).join('')}</div>
       <div class="sect-h"><h3>${t('acct.best')}</h3></div>
       <div class="bests">${GAMES.map((g) => `<div class="best" style="--c:${g.color}"><span class="gi">${g.icon}</span><span class="bn">${g.name}</span><b>${S.best[g.id] ? nf(S.best[g.id]) : '—'}</b></div>`).join('')}</div>`;
   }
+  const heroAv = () => `${AVATAR.framed(S.avatar, 104, { live: true })}<span class="acct-edit" aria-hidden="true">${aico('character')}</span>`;
   function renderProfile() {
     const lvl = levelOf(S.xp), r = rankOf(lvl), a = thr(lvl), b = thr(lvl + 1), pct = (S.xp - a) / (b - a) * 100;
     $('#acct').innerHTML = `<div class="panel acct-hero" style="--rc:${r.col}">
-        <button class="acct-av" data-acct="character" aria-label="${t('acct.edit')}">${AVATAR.svg(S.avatar, 104)}<span class="acct-edit" aria-hidden="true">${aico('character')}</span></button>
+        <button class="acct-av" data-acct="character" aria-label="${t('acct.edit')}">${heroAv()}</button>
         <div class="acct-id">
           <label class="meta" for="nameIn">${t('acct.name')}</label>
           <input id="nameIn" class="acct-name" maxlength="16" autocomplete="nickname" value="${esc(S.name)}">
-          <div class="acct-sub"><span class="rank-pill">${r.name}</span><span class="meta">${t('u.level', { n: lvl })} · ${t('u.xp', { n: nf(S.xp) })}</span></div>
+          <div class="acct-sub"><span class="rank-pill">${r.name}</span><span class="title-pill">${t('ti.' + AVATAR.TITLES[S.avatar.title || 0].n)}</span><span class="meta">${t('u.level', { n: lvl })} · ${t('u.xp', { n: nf(S.xp) })}</span></div>
           <div class="bar"><i style="width:${pct}%"></i></div>
           <div class="bar-meta meta"><span>${t('hero.xp', { a: nf(S.xp - a), b: nf(b - a), n: lvl + 1 })}</span></div>
         </div>
       </div>
       <div class="acct-tabs" role="tablist" aria-label="${t('nav.account')}">${ATABS.map((k) => `<button role="tab" id="atab-${k}" class="${k === acctTab ? 'on' : ''}" aria-selected="${k === acctTab}" aria-controls="acct-body" data-acct="${k}">${aico(k)}<span>${t('acct.' + k)}</span></button>`).join('')}</div>
       <div class="acct-body" id="acct-body" role="tabpanel" aria-labelledby="atab-${acctTab}">${acctBody()}</div>`;
-    if (acctTab === 'character') AVATAR.mountEditor($('#charEditor'), { av: S.avatar, level: lvl, t, onChange: (av) => { S.avatar = av; save(); $('#avBtn').innerHTML = AVATAR.svg(av, 30); const h = $('.acct-av .avsvg'); if (h) h.outerHTML = AVATAR.svg(av, 104); } });
+    if (acctTab === 'character') AVATAR.mountEditor($('#charEditor'), { av: S.avatar, level: lvl, streak: S.bestStreak, t, onChange: (av) => { S.avatar = av; save(); $('#avBtn').innerHTML = AVATAR.svg(av, 30); const h = $('.acct-av'); if (h) h.innerHTML = heroAv(); const tp = $('.title-pill'); if (tp) tp.textContent = t('ti.' + AVATAR.TITLES[av.title || 0].n); } });
     const sh = $('#shApp'); if (sh) sh.onclick = () => shareText(t('share.invite'));
     const rs = $('#resetBtn'); if (rs) rs.onclick = () => { if (confirm(t('set.reset.confirm'))) { S = fresh(); S.avatar = AVATAR.random(); ensure(); save(); go('play'); toast(t('set.reset.done')); } };
     const ck = $('#cookieBtn2'); if (ck) ck.onclick = consentBanner;
@@ -325,7 +355,7 @@
   const renderers = { play: renderPlay, versus: () => VERSUS.renderView(), rewards: renderRewards, redeem: renderRedeem, ranks: renderRanks, profile: renderProfile };
   let view = 'play';
   function go(v) {
-    if (document.startViewTransition && !matchMedia('(prefers-reduced-motion:reduce)').matches && v !== view) return void document.startViewTransition(() => go2(v));
+    if (document.startViewTransition && !matchMedia('(prefers-reduced-motion:reduce)').matches && v !== view) { const vt = document.startViewTransition(() => go2(v)); [vt.ready, vt.finished].forEach((p) => p.catch(() => {})); return; }
     go2(v);
   }
   function go2(v) {
@@ -391,6 +421,10 @@
     if (S.bonusDay === dayStr()) return; const amt = 10 + 5 * Math.min(effStreak(), 6);
     S.bonusDay = dayStr(); S.coins += amt; sfx('win'); toast(t('toast.coins', { n: amt })); bump(); refresh();
   }
+  function buyFreeze() {
+    if (S.freezes >= FREEZE_MAX) return toast(t('streak.freeze.max')); if (S.coins < FREEZE_COST) return toast(t('game.nocoins'));
+    S.coins -= FREEZE_COST; S.freezes++; sfx('win'); toast(t('streak.bought')); bump(); refresh();
+  }
   function qclaim(id) {
     const q = QUESTS.find((x) => x.id === id); if (!q || S.q.claimed[id] || S.q[q.key] < q.goal) return;
     S.q.claimed[id] = 1; S.qdone++; S.coins += q.coins; sfx('win'); toast(t('toast.coins', { n: q.coins })); bump(); refresh();
@@ -430,7 +464,7 @@
     }
     runDiff = curDuel ? curDuel.diff : S.diff;
     stopGame(); $('#gameTitle').textContent = g.name; $('#gameHud').innerHTML = ''; $('#stage').innerHTML = '';
-    $('#gameOv').hidden = false; document.body.style.overflow = 'hidden'; S.last = g.id; $('.game-shell').style.setProperty('--c', g.color); $('#gameOv').style.setProperty('--c', g.color); $('#powers').innerHTML = ''; comboHide();
+    $('#gameOv').hidden = false; document.body.style.overflow = 'hidden'; S.last = g.id; $('.game-shell').style.setProperty('--c', g.color); $('#gameOv').style.setProperty('--c', g.color); $('#powers').innerHTML = ''; comboHide(); bsVal = 0; $('#bigScore').hidden = true; $('#bigScore b').textContent = '0'; $('#bigScore small').textContent = S.best[g.id] ? t('card.best', { n: nf(S.best[g.id]) }) : t('hud.score');
     const stage = $('#stage'), cd = document.createElement('div'); cd.className = 'cd'; cd.setAttribute('aria-live', 'assertive'); stage.append(cd);
     let n = 3, tm; cleanup = () => clearTimeout(tm);
     const step = () => {
@@ -438,11 +472,23 @@
       stage.innerHTML = '';
       cleanup = g.mount(stage, {
         sfx, ...fxApi, diff: runDiff, seed: curDuel ? curDuel.seed : undefined, combo: comboShow, flash, spend, power: addPower,
-        hud: (items) => { if (curDuel && curDuel.onHud) curDuel.onHud(items); $('#gameHud').innerHTML = items.filter(Boolean).map((i) => typeof i === 'string' ? `<span class="hud">${esc(i)}</span>` : `<span class="hud ${i.low ? 'low' : ''}">${esc(i.t)}</span>`).join(''); },
+        hud: (items) => { if (curDuel && curDuel.onHud) curDuel.onHud(items); items = bigScore(items); $('#gameHud').innerHTML = items.filter(Boolean).map((i) => typeof i === 'string' ? `<span class="hud">${esc(i)}</span>` : `<span class="hud ${i.low ? 'low' : ''}">${esc(i.t)}</span>`).join(''); },
         end: (r) => finish(g, r),
       });
     };
     step();
+  }
+  /* pulls the "Score N" HUD chip out into a big animated live counter with +N pops */
+  let bsVal = 0, bsRaf;
+  function bigScore(items) {
+    const box = $('#bigScore'), lab = t('hud.score'); let hit = null;
+    const rest = items.filter((i) => { const m = typeof i === 'string' && i.startsWith(lab + ' ') && /^[\d,.]+$/.test(i.slice(lab.length + 1)) ? +i.slice(lab.length + 1).replace(/[,.]/g, '') : null; if (m !== null && hit === null) { hit = m; return false; } return true; });
+    if (hit === null) { if (bsVal === 0) box.hidden = true; return items; }
+    box.hidden = false; const el = box.querySelector('b'), d = hit - bsVal;
+    if (d > 0 && (d >= 20 || performance.now() - (bigScore.lp || 0) > 350)) { bigScore.lp = performance.now(); const f = document.createElement('i'); f.textContent = '+' + nf(d); box.append(f); setTimeout(() => f.remove(), 900); box.classList.remove('bump'); void box.offsetWidth; box.classList.add('bump'); }
+    const from = bsVal, t0 = performance.now(); bsVal = hit; cancelAnimationFrame(bsRaf);
+    const tick = (n) => { const k = Math.min(1, (n - t0) / 300); el.textContent = nf(Math.round(from + (hit - from) * k)); if (k < 1) bsRaf = requestAnimationFrame(tick); }; bsRaf = requestAnimationFrame(tick);
+    return rest;
   }
   function stopGame() { if (cleanup) { try { cleanup(); } catch {} cleanup = null; } }
   function closeGame() { stopGame(); $('#gameOv').hidden = true; document.body.style.overflow = ''; }
@@ -452,7 +498,10 @@
     if (curDuel) { const d = curDuel; curDuel = null; stopGame(); flash(r.win ? g.color : '#ff6b5e'); setTimeout(() => closeGame(), 350); d.onEnd(r); return; }
     stopGame(); ensure(); flash(r.win ? g.color : '#ff6b5e');
     const today = dayStr(), isDaily = g.id === dailyGame().id && S.dailyDone !== today && r.win;
+    const ctxBefore = { level: levelOf(S.xp), streak: S.bestStreak };
     if (S.lastDay !== today) { S.streak = S.lastDay === dayStr(ago(1)) ? S.streak + 1 : 1; S.lastDay = today; }
+    S.bestStreak = Math.max(S.bestStreak, S.streak);
+    let smGot = 0; STREAK_MS.forEach(([d, c]) => { if (S.streak >= d && !S.sm[d]) { S.sm[d] = 1; S.coins += c; smGot += c; } });
     if (!S.days.includes(today)) S.days = S.days.concat(today).slice(-60);
     const mul = 1 + 0.05 * Math.min(S.streak - 1, 10);
     const stars0 = r.win ? (r.quality > .75 ? 3 : r.quality > .4 ? 2 : 1) : 0;
@@ -466,20 +515,24 @@
     const newBest = r.win && (!S.best[g.id] || r.score > S.best[g.id]); if (!S.best[g.id] || r.score > S.best[g.id]) S.best[g.id] = r.score;
     const nStars = stars0; if (nStars === 3) S.stars3++;
     checkAch(); save();
+    const ctxAfter = () => ({ level: levelOf(S.xp), streak: S.bestStreak }), cosmNew = () => {
+      const was = AVATAR.unlocks(ctxBefore), names = new Set(); AVATAR.unlocks(ctxAfter()).forEach((u, i) => { if (!u.locked && was[i] && was[i].locked) names.add(u.name); });
+      return [...names].slice(0, 3).join(', ');
+    };
     let boosted = false, luShown = false;
     const show = () => {
       const after = levelOf(S.xp), up = after > before, rk = rankOf(after), b = thr(after + 1), mult = boosted ? 2 : 1;
       const newly = MILES.filter((m) => m.lvl > before && m.lvl <= after && !S.claimed[m.lvl]);
       $('#gameOv').hidden = true;
-      if (up && !luShown) { luShown = true; sfx('win'); confetti(220); const mm = modal(`<div class="lu-badge">${after}</div><p class="meta">${t('lu.kicker')}</p><h2>${rk.name}</h2><p>${newly.length ? t('lu.unlocked', { name: esc(mname(newly[0])) }) : t('lu.keep')}</p><div class="acts"><button class="btn primary" id="luGo">${t('continue')}</button></div>`); mm.classList.add('c'); mm.dataset.lock = '1'; $('#luGo').onclick = () => { delete mm.dataset.lock; mm.classList.remove('c'); closeModal(); show(); }; return; }
+      if (up && !luShown) { luShown = true; sfx('win'); confetti(220); const mm = modal(`<div class="lu-badge">${after}</div><p class="meta">${t('lu.kicker')}</p><h2>${rk.name}</h2><p>${newly.length ? t('lu.unlocked', { name: esc(mname(newly[0])) }) : t('lu.keep')}</p>${cosmNew() ? `<p class="cosm">✨ ${t('lu.cosm', { name: esc(cosmNew()) })}</p>` : ''}<div class="acts"><button class="btn primary" id="luGo">${t('continue')}</button></div>`); mm.classList.add('c'); mm.dataset.lock = '1'; $('#luGo').onclick = () => { delete mm.dataset.lock; mm.classList.remove('c'); closeModal(); show(); }; return; }
       if (r.win && !up) { sfx('win'); confetti(90, undefined, undefined, [g.color, ...confCols()]); }
       const toGo = b - S.xp;
+      const cosm = cosmNew();
       const m = modal(`<p class="meta">${r.win ? t('res.solved') : t('res.over')}${r.label ? ' · ' + esc(r.label) : ''}${newBest ? `<span class="tag-best">${t('res.newbest')}</span>` : ''}</p>
         ${r.win ? `<div class="stars" aria-label="${t('res.stars', { n: nStars })}">${[1, 2, 3].map((i) => `<svg viewBox="0 0 24 24" class="${i <= nStars ? 'on' : ''}" fill="currentColor"><path d="M12 2l3 6.5 7 .8-5.2 4.8 1.5 7L12 17.5 5.7 21l1.5-7L2 9.300l7-.8z"/></svg>`).join('')}</div>` : ''}
         <div class="res-xp" id="rx">0</div><p style="margin-top:0">${t('res.xp')}${isDaily ? ' ' + t('res.daily') : ''}</p>
         <div class="res-rows"><div><span>${t('res.diff')}</span><b>${dn(runDiff)} ×${dm}${bst ? ' · ' + t('res.boost') : ''}</b></div>${nStars === 3 ? `<div><span>${t('res.perfect')}</span><b>+25 XP</b></div>` : ''}<div><span>${t('res.coins')}</span><b>+${coins * mult}</b></div><div><span>${t('res.streak')}</span><b>${t('bonus.streak', { n: S.streak })}${mul > 1 ? ' (+' + Math.round((mul - 1) * 100) + '% XP)' : ''}</b></div><div><span>${t('res.next')}</span><b>${t('u.xp', { n: nf(toGo) })}</b></div></div>
-        ${up ? `<div class="lvup">${t('res.lvl', { n: after, name: rk.name })}</div>` : ''}
-        ${newly.length ? `<div class="lvup">${t('lu.unlocked', { name: esc(mname(newly[0])) })}</div>` : ''}
+        ${up || smGot || cosm || newly.length ? `<div class="lvups">${up ? `<p>${t('res.lvl', { n: after, name: rk.name })}</p>` : ''}${smGot ? `<p>${FLAME} ${t('streak.ms', { n: nf(smGot) })}</p>` : ''}${cosm ? `<p>✨ ${t('lu.cosm', { name: esc(cosm) })}</p>` : ''}${newly.length ? `<p>🎁 ${t('lu.unlocked', { name: esc(mname(newly[0])) })}</p>` : ''}</div>` : ''}
         <div class="acts"><button class="btn primary" id="again">${t('res.again')}</button>
         ${boosted ? '' : `<button class="btn" id="dbl">${t('res.double')}</button>`}
         <button class="btn ghost" id="shr">${t('res.share')}</button>
@@ -568,6 +621,7 @@
     else if (d.spin) spinUI();
     else if (d.diff !== undefined) { S.diff = +d.diff; save(); $$('.dch', $('#modal')).forEach((x) => { const on = +x.dataset.diff === S.diff; x.classList.toggle('on', on); x.setAttribute('aria-pressed', on); }); }
     else if (d.qclaim) qclaim(d.qclaim);
+    else if (d.freeze) buyFreeze();
     else if (d.close !== undefined) closeModal();
   });
   // arrow keys move between account tabs (WAI-ARIA tabs pattern)
@@ -607,6 +661,8 @@
     I18N.onchange = retext;
     I18N.apply(); initAds();
     if (!S.onboarded) setTimeout(() => onboarding(askConsent), 400); else askConsent();
+    if (S.onboarded && S.visit && dayDiff(S.visit, dayStr()) >= 3) { S.coins += 25; notes.push(t('back.toast', { n: 25 })); }
+    S.visit = dayStr(); save(); notes.forEach((m, i) => setTimeout(() => toast(m), 1200 + i * 600)); notes.length = 0;
     $('#yr').textContent = new Date().getFullYear();
     go(location.hash.slice(1) in renderers ? location.hash.slice(1) : 'play');
   });
