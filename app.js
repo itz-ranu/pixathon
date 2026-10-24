@@ -430,7 +430,7 @@
     }
     runDiff = curDuel ? curDuel.diff : S.diff;
     stopGame(); $('#gameTitle').textContent = g.name; $('#gameHud').innerHTML = ''; $('#stage').innerHTML = '';
-    $('#gameOv').hidden = false; document.body.style.overflow = 'hidden'; S.last = g.id; $('.game-shell').style.setProperty('--c', g.color); $('#powers').innerHTML = ''; comboHide();
+    $('#gameOv').hidden = false; document.body.style.overflow = 'hidden'; S.last = g.id; $('.game-shell').style.setProperty('--c', g.color); $('#gameOv').style.setProperty('--c', g.color); $('#powers').innerHTML = ''; comboHide();
     const stage = $('#stage'), cd = document.createElement('div'); cd.className = 'cd'; cd.setAttribute('aria-live', 'assertive'); stage.append(cd);
     let n = 3, tm; cleanup = () => clearTimeout(tm);
     const step = () => {

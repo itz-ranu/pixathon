@@ -758,3 +758,35 @@ html[lang=ar] .avg h4,html[lang=hi] .avg h4{text-transform:none}
 .snk.hop,.snk.blt,.snk.bub{width:min(100%,340px);aspect-ratio:3/4;cursor:crosshair}
 .snk.road{width:min(100%,360px);aspect-ratio:360/440}
 @media (prefers-reduced-motion:reduce){.tcard,.art .bn{transition:none}}
+
+/* ===== game UI v3: immersive glass + neon + depth ===== */
+#gameOv{background:radial-gradient(90% 60% at 50% 0%,color-mix(in srgb,var(--c,#8b7bff) 38%,#07060d),#05040a 70%);perspective:1400px;overflow:auto}
+#gameOv::before,#gameOv::after{content:"";position:fixed;width:60vmax;height:60vmax;border-radius:50%;filter:blur(90px);opacity:.35;pointer-events:none;background:var(--c,#8b7bff);animation:aur 14s ease-in-out infinite alternate}
+#gameOv::before{top:-30vmax;left:-20vmax}#gameOv::after{bottom:-35vmax;right:-25vmax;background:color-mix(in srgb,var(--c,#8b7bff) 50%,#ff4fd8);animation-duration:18s}
+@keyframes aur{to{transform:translate(8vmax,6vmax) scale(1.15)}}
+#gameOv .game-shell{position:relative;z-index:1;max-width:480px;border-radius:28px;padding:16px 16px 18px;background:linear-gradient(160deg,rgba(255,255,255,.09),rgba(255,255,255,.03) 40%,rgba(10,8,20,.55));backdrop-filter:blur(22px) saturate(1.3);-webkit-backdrop-filter:blur(22px) saturate(1.3);border:1px solid rgba(255,255,255,.14);box-shadow:0 40px 90px -20px rgba(0,0,0,.7),0 0 0 1px color-mix(in srgb,var(--c) 30%,transparent),0 0 80px -10px color-mix(in srgb,var(--c) 45%,transparent),inset 0 1px 0 rgba(255,255,255,.22);animation:shellIn .5s var(--ease)}
+@keyframes shellIn{from{opacity:0;transform:translateY(24px) rotateX(10deg) scale(.96)}}
+#gameOv .game-shell::before{display:none}
+#gameOv .game-bar{margin-bottom:14px}
+#gameOv .game-bar h2{font:800 1.25rem var(--f-disp);letter-spacing:-.01em;background:linear-gradient(90deg,#fff,color-mix(in srgb,var(--c) 70%,#fff));-webkit-background-clip:text;background-clip:text;color:transparent}
+#gameOv .hud{padding:5px 12px;border-radius:99px;font:700 .8125rem var(--f-disp);color:#fff;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.16);box-shadow:inset 0 1px 0 rgba(255,255,255,.18),0 4px 14px rgba(0,0,0,.35)}
+#gameOv .hud.low{color:#ff8a80;border-color:#ff6b5e;box-shadow:0 0 16px rgba(255,107,94,.5);animation:lowp .8s infinite alternate}
+@keyframes lowp{to{transform:scale(1.08)}}
+#gameOv .x{border-radius:50%;background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.16);color:#fff}
+#gameOv .stage{min-height:360px}
+#gameOv .cd{font:900 8rem/1 var(--f-disp);color:#fff;text-shadow:0 1px 0 color-mix(in srgb,var(--c) 90%,#000),0 2px 0 color-mix(in srgb,var(--c) 80%,#000),0 3px 0 color-mix(in srgb,var(--c) 70%,#000),0 4px 0 color-mix(in srgb,var(--c) 60%,#000),0 6px 0 color-mix(in srgb,var(--c) 45%,#000),0 14px 28px rgba(0,0,0,.6),0 0 50px var(--c)}
+#gameOv .pw{border-radius:99px;background:rgba(255,255,255,.09);border-color:rgba(255,255,255,.2);color:#fff;box-shadow:inset 0 1px 0 rgba(255,255,255,.22),0 6px 16px rgba(0,0,0,.35);transition:transform .15s var(--ease),box-shadow .15s}
+#gameOv .pw:hover{transform:translateY(-2px);box-shadow:0 10px 24px color-mix(in srgb,var(--c) 40%,transparent),inset 0 1px 0 rgba(255,255,255,.3)}
+#gameOv .pw b{color:#ffd23d}
+.snk,.t3c{border-radius:22px!important;border:1px solid color-mix(in srgb,var(--c,#fff) 45%,rgba(255,255,255,.12))!important;box-shadow:0 24px 48px -12px rgba(0,0,0,.65),0 0 40px -6px color-mix(in srgb,var(--c,#8b7bff) 55%,transparent),inset 0 0 0 1px rgba(255,255,255,.05)}
+.t3c{display:block;margin:0 auto;width:min(100%,340px);aspect-ratio:3/4;background:radial-gradient(120% 90% at 50% 0%,color-mix(in srgb,var(--c,#8b7bff) 50%,#0b0716),#05040c 80%)}
+.t3{display:grid;gap:10px;justify-items:center}
+.t3 .snk-pad{width:100%}
+/* tactile 3D tiles */
+.ttt-c,.wd-t,.wd-k,.mole-h,.ans,.pad,.tile2,.slide-board button,.mem .card3d button{background-image:linear-gradient(180deg,rgba(255,255,255,.14),rgba(255,255,255,0) 55%);box-shadow:inset 0 1px 0 rgba(255,255,255,.25),inset 0 -3px 0 rgba(0,0,0,.28),0 5px 0 rgba(0,0,0,.35),0 10px 18px rgba(0,0,0,.35);transition:transform .12s var(--ease),box-shadow .12s}
+.ttt-c:active,.wd-k:active,.mole-h:active,.ans:active,.pad:active{transform:translateY(4px);box-shadow:inset 0 1px 0 rgba(255,255,255,.2),0 1px 0 rgba(0,0,0,.35)}
+.ttt-c:hover,.ans:hover,.pad:hover{transform:translateY(-2px)}
+.rx{box-shadow:inset 0 2px 0 rgba(255,255,255,.3),inset 0 -8px 0 rgba(0,0,0,.25),0 14px 0 rgba(0,0,0,.35),0 24px 40px rgba(0,0,0,.45);transition:transform .1s}
+.rx:active{transform:translateY(8px)}
+@media (max-width:560px){#gameOv{padding:8px}#gameOv .game-shell{border-radius:22px;padding:12px}#gameOv .cd{font-size:6rem}}
+@media (prefers-reduced-motion:reduce){#gameOv::before,#gameOv::after,#gameOv .game-shell{animation:none}}

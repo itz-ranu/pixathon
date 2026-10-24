@@ -1,4 +1,4 @@
-/* Thirty puzzle games. Each mount(stage, ctx) returns a cleanup fn.
+/* Thirty-two puzzle games. Each mount(stage, ctx) returns a cleanup fn.
    ctx: sfx, hud, end({win,quality,score,label}), burst(el,color,n), pop(el,text,color), shake(el),
         diff (0 easy,1 normal,2 hard), combo(n), flash(color), power({label,cost,use(btn)}) */
 (function () {
@@ -598,38 +598,6 @@
     return () => { over = true; clearInterval(tm); to.forEach(clearTimeout); };
   }
 
-  /* ---------- 22. Stack Tower ---------- */
-  function stack(stage, ctx) {
-    const W = 360, VH = 480, BH = 24, need = pick([12, 18, 25], ctx.diff), base = 150, sp0 = pick([2.2, 3, 3.8], ctx.diff);
-    let blocks = [{ x: (W - base) / 2, w: base }], cur = { x: 0, w: base }, dir = 1, over = false, raf, last = 0, perfect = 0, cap = 70;
-    const cv = $(`<canvas class="snk stk" width="${W}" height="${VH}" aria-label="Stack tower"></canvas>`), g = cv.getContext('2d');
-    const lvl = () => blocks.length - 1, col = (i) => `hsl(${(i * 14) % 360} 62% 58%)`;
-    const hud = () => ctx.hud([H('score', lvl()), `${T('hud.goal')} ${need}`]);
-    const draw = () => {
-      g.fillStyle = '#12151b'; g.fillRect(0, 0, W, VH); const top = Math.max(0, blocks.length - 12), oy = 330 - 0;
-      blocks.forEach((b, i) => { if (i < top) return; g.fillStyle = col(i); g.fillRect(b.x, oy - (i - top) * BH, b.w, BH - 2); });
-      g.fillStyle = col(blocks.length); g.fillRect(cur.x, oy - (blocks.length - top) * BH, cur.w, BH - 2);
-    };
-    const finish = () => { over = true; cancelAnimationFrame(raf); setTimeout(() => ctx.end({ win: lvl() >= need, quality: clamp(lvl() / (need * 1.4)), score: lvl() * 100 + perfect * 50, label: T('stk.lbl', { n: lvl() }) }), 500); };
-    const place = () => {
-      if (over) return; const p = blocks[blocks.length - 1], d = cur.x - p.x;
-      if (Math.abs(d) < 5) { cur.x = p.x; perfect++; ctx.sfx('good', perfect); ctx.combo(perfect); ctx.pop(cv, T('stk.perfect'), '#d6ff3d'); }
-      else { perfect = 0; ctx.combo(0); const x0 = Math.max(cur.x, p.x), x1 = Math.min(cur.x + cur.w, p.x + p.w); if (x1 - x0 <= 0) { ctx.sfx('bad'); ctx.shake(cv); draw(); return finish(); } ctx.sfx('tap'); cur = { x: x0, w: x1 - x0 }; }
-      blocks.push({ x: cur.x, w: cur.w }); hud(); if (lvl() >= cap) return finish();
-      cur = { x: dir > 0 ? 0 : W - cur.w, w: cur.w };
-    };
-    const loop = (now) => {
-      if (over) return; const dt = Math.min((now - (last || now)) / 16.67, 2); last = now;
-      cur.x += dir * (sp0 + lvl() * .09) * dt * 1.6; if (cur.x + cur.w >= W) { cur.x = W - cur.w; dir = -1; } else if (cur.x <= 0) { cur.x = 0; dir = 1; }
-      draw(); raf = requestAnimationFrame(loop);
-    };
-    const kd = (e) => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); place(); } };
-    cv.addEventListener('pointerdown', (e) => { e.preventDefault(); place(); }); cv.style.touchAction = 'none';
-    document.addEventListener('keydown', kd);
-    stage.append(cv, $(`<p class="hint">${T('stk.hint', { n: need })}</p>`)); hud(); draw(); raf = requestAnimationFrame(loop);
-    return () => { over = true; cancelAnimationFrame(raf); document.removeEventListener('keydown', kd); };
-  }
-
   /* ---------- 23. Reaction Test ---------- */
   function react(stage, ctx) {
     const R = 5, goal = pick([400, 330, 270], ctx.diff);
@@ -955,6 +923,149 @@
     return () => { over = true; cancelAnimationFrame(raf); document.removeEventListener('keydown', kd); };
   }
 
+  /* ================= real 3D games (three.js, loaded on demand) ================= */
+  let THREE_P;
+  const loadThree = () => THREE_P || (THREE_P = new Promise((res, rej) => {
+    if (window.THREE) return res(window.THREE);
+    const s = document.createElement('script'); s.src = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
+    s.onload = () => res(window.THREE); s.onerror = () => { THREE_P = null; rej(new Error('three')); }; document.head.append(s);
+  }));
+  const with3d = (stage, build) => {
+    let dead = false, inner = null; const host = $(`<div class="t3"><p class="hint">${T('t3.load')}</p></div>`); stage.append(host);
+    loadThree().then((THREE) => { if (dead) return; host.innerHTML = ''; inner = build(THREE, host); }).catch(() => { host.innerHTML = `<p class="hint">${T('t3.err')}</p>`; });
+    return () => { dead = true; if (inner) inner(); };
+  };
+  const mkR = (THREE, host, W, VH) => { const r = new THREE.WebGLRenderer({ antialias: true, alpha: true }); r.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2)); r.setSize(W, VH, false); r.setClearColor(0, 0); r.domElement.className = 'snk t3c'; r.domElement.style.touchAction = 'none'; host.append(r.domElement); return r; };
+  const kill = (r) => { r.dispose(); try { r.forceContextLoss(); } catch (e) {} };
+  const lit3 = (THREE, scene, sky = 0xb4a8ff, ground = 0x1a1030) => { scene.add(new THREE.HemisphereLight(sky, ground, .95)); const d = new THREE.DirectionalLight(0xffffff, .85); d.position.set(4, 9, 5); scene.add(d); };
+  const neon = (THREE, geo, color, em = .9) => new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: em, roughness: .35, metalness: .2 }));
+  const edges = (THREE, mesh, color = 0xffffff) => { const l = new THREE.LineSegments(new THREE.EdgesGeometry(mesh.geometry), new THREE.LineBasicMaterial({ color, transparent: true, opacity: .55 })); mesh.add(l); return mesh; };
+
+  /* ---------- 31. Neon Runner 3D ---------- */
+  function runner(stage, ctx) {
+    return with3d(stage, (THREE, host) => {
+      const W = 360, VH = 480, goal = pick([15, 25, 40], ctx.diff), sp0 = pick([13, 16, 19], ctx.diff), LX = [-2.2, 0, 2.2];
+      const r = mkR(THREE, host, W, VH), scene = new THREE.Scene(), cam = new THREE.PerspectiveCamera(62, W / VH, .1, 140);
+      scene.fog = new THREE.Fog(0x0b0716, 20, 80); cam.position.set(0, 3.5, 6.2); cam.lookAt(0, 1, -7); lit3(THREE, scene, 0x9a8cff, 0x120a24);
+      const floor = new THREE.Mesh(new THREE.PlaneGeometry(8, 220), new THREE.MeshStandardMaterial({ color: 0x15102c, roughness: .5, metalness: .4 })); floor.rotation.x = -Math.PI / 2; floor.position.z = -90; scene.add(floor);
+      [-3.4, -1.1, 1.1, 3.4].forEach((x) => { const l = neon(THREE, new THREE.BoxGeometry(.06, .02, 220), 0x7a5cff, .8); l.position.set(x, .02, -90); scene.add(l); });
+      const stripes = [], pillars = []; for (let i = 0; i < 22; i++) { const s = neon(THREE, new THREE.BoxGeometry(6.8, .02, .08), 0x4f3bd6, .5); s.position.set(0, .03, -i * 6); scene.add(s); stripes.push(s); }
+      for (let i = 0; i < 14; i++) [-1, 1].forEach((sd) => { const p = neon(THREE, new THREE.BoxGeometry(.5, 3 + (i % 3), .5), sd < 0 ? 0xff4fd8 : 0x35e0ff, .7); p.position.set(sd * 5.2, 1.5, -i * 9); scene.add(p); pillars.push(p); });
+      const pl = new THREE.Group(), body = edges(THREE, neon(THREE, new THREE.BoxGeometry(.9, .9, .9), 0xd6ff3d, .55)); pl.add(body);
+      const sh = new THREE.Mesh(new THREE.CircleGeometry(.6, 20), new THREE.MeshBasicMaterial({ color: 0, transparent: true, opacity: .4 })); sh.rotation.x = -Math.PI / 2; scene.add(sh); scene.add(pl);
+      const gT = new THREE.BoxGeometry(1.6, 2.6, 1.2), gL = new THREE.BoxGeometry(1.9, .8, 1), gO = new THREE.SphereGeometry(.36, 16, 12);
+      let ents = [], lane = 1, px = 0, py = .45, vy = 0, orbs = 0, pts = 0, dist = 0, sp = sp0, nextRow = 0, over = false, raf, last = 0, shake = 0, combo = 0, spacing = 17;
+      const hud = () => ctx.hud([H('score', pts), `◆ ${orbs}/${goal}`]);
+      const add = (g, col, x, y, z, type) => { const m = type === 'o' ? neon(THREE, g, col, 1) : edges(THREE, neon(THREE, g, col, .55)); m.position.set(x, y, z); scene.add(m); ents.push({ m, type, x, z }); };
+      const row = (z) => { const free = ri(0, 2); LX.forEach((x, i) => { if (i === free) { if (RND() < .7) for (let k = 0; k < 3; k++) add(gO, 0x35e0ff, x, .95, z - k * 2.4, 'o'); } else if (RND() < .62) { if (RND() < .5) add(gT, 0xff4fd8, x, 1.3, z, 't'); else add(gL, 0xffa23d, x, .4, z, 'l'); } }); };
+      const fin = (win) => { over = true; cancelAnimationFrame(raf); ctx.sfx(win ? 'win' : 'bad'); if (!win) { ctx.flash('#ff4fd8'); ctx.shake(r.domElement); } setTimeout(() => ctx.end({ win, quality: clamp(orbs / (goal * 1.3)), score: pts, label: T('run.lbl', { n: orbs }) }), 550); };
+      const go = (d) => { const n = clamp(lane + d, 0, 2); if (n !== lane) { lane = n; ctx.sfx('tap'); } };
+      const jump = () => { if (py <= .46) { vy = 9.8; ctx.sfx('tap'); } };
+      const loop = (now) => {
+        if (over) return; const dt = Math.min((now - (last || now)) / 1000, .05); last = now; sp = Math.min(sp0 + dist / 90, sp0 + 11); dist += sp * dt; pts = Math.floor(dist) + orbs * 50;
+        px += (LX[lane] - px) * Math.min(1, 14 * dt); vy -= 27 * dt; py += vy * dt; if (py < .45) { py = .45; vy = 0; }
+        pl.position.set(px, py, 0); pl.rotation.y += dt * 1.4; pl.rotation.z = (LX[lane] - px) * -.12; sh.position.set(px, .03, 0); sh.scale.setScalar(clamp(1.1 - (py - .45) * .25, .4, 1));
+        nextRow -= sp * dt; if (nextRow <= 0) { row(-75); nextRow = spacing; spacing = Math.max(11, spacing - .08); }
+        ents.forEach((e) => { e.z += sp * dt; e.m.position.z = e.z; if (e.type === 'o') { e.m.rotation.y += dt * 4; e.m.position.y = .95 + Math.sin(now / 250 + e.x) * .12; } });
+        for (const e of ents) { if (e.dead || e.z < -1 || e.z > 1) continue; const dx = Math.abs(e.x - px);
+          if (e.type === 'o' && dx < 1 && Math.abs(py - .95) < 1.3) { e.dead = true; scene.remove(e.m); orbs++; combo++; ctx.sfx('good', combo); ctx.combo(combo); hud(); if (orbs >= goal) return fin(true); }
+          else if (e.type === 't' && dx < 1.05) return fin(false);
+          else if (e.type === 'l' && dx < 1.15 && py < 1.2) return fin(false); }
+        ents = ents.filter((e) => { if (e.dead) return false; if (e.z > 9) { scene.remove(e.m); if (e.type === 'o') combo = 0; return false; } return true; });
+        stripes.forEach((s) => { s.position.z += sp * dt; if (s.position.z > 8) s.position.z -= 132; }); pillars.forEach((p) => { p.position.z += sp * dt; if (p.position.z > 8) p.position.z -= 126; });
+        cam.position.x += (px * .45 - cam.position.x) * .1; cam.lookAt(px * .3, 1, -7); hud(); r.render(scene, cam); raf = requestAnimationFrame(loop);
+      };
+      const kd = (e) => { const k = e.key; if (k === 'ArrowLeft' || k === 'a') { e.preventDefault(); go(-1); } else if (k === 'ArrowRight' || k === 'd') { e.preventDefault(); go(1); } else if (k === 'ArrowUp' || k === 'w' || k === ' ') { e.preventDefault(); jump(); } };
+      document.addEventListener('keydown', kd); const cv = r.domElement; let sx, sy;
+      cv.addEventListener('pointerdown', (e) => { sx = e.clientX; sy = e.clientY; });
+      cv.addEventListener('pointerup', (e) => { const dx = e.clientX - sx, dy = e.clientY - sy; if (Math.max(Math.abs(dx), Math.abs(dy)) < 20) jump(); else if (Math.abs(dx) > Math.abs(dy)) go(dx < 0 ? -1 : 1); else if (dy < 0) jump(); });
+      const pad = $('<div class="snk-pad"><div><button aria-label="Left">◀</button><button aria-label="Jump">⤒</button><button aria-label="Right">▶</button></div></div>'); const acts = [() => go(-1), jump, () => go(1)]; [...pad.querySelectorAll('button')].forEach((b, i) => { b.onclick = acts[i]; });
+      host.append(pad, $(`<p class="hint">${T('run.hint', { n: goal })}</p>`)); hud(); raf = requestAnimationFrame(loop);
+      return () => { over = true; cancelAnimationFrame(raf); document.removeEventListener('keydown', kd); kill(r); };
+    });
+  }
+
+  /* ---------- 32. Helix Drop 3D ---------- */
+  function helix(stage, ctx) {
+    return with3d(stage, (THREE, host) => {
+      const W = 360, VH = 480, levels = pick([10, 15, 22], ctx.diff), GAP = 2.4, RAD = 2.3, N = 12, dp = pick([.1, .18, .26], ctx.diff), BR = .32, BZ = 1.45;
+      const r = mkR(THREE, host, W, VH), scene = new THREE.Scene(), cam = new THREE.PerspectiveCamera(48, W / VH, .1, 100); lit3(THREE, scene, 0xcfd6ff, 0x2a1a50);
+      const tower = new THREE.Group(); scene.add(tower);
+      const pole = new THREE.Mesh(new THREE.CylinderGeometry(.6, .6, levels * GAP + 14, 28), new THREE.MeshStandardMaterial({ color: 0x6a5fd0, roughness: .45, metalness: .25 })); pole.position.y = -levels * GAP / 2 + 3; tower.add(pole);
+      const rings = [], dth = Math.PI * 2 / N;
+      for (let lv = 0; lv < levels; lv++) {
+        const solid = Array(N).fill(true), gs = ri(0, N - 1), gn = ri(2, 3); for (let k = 0; k < gn; k++) solid[(gs + k) % N] = false;
+        const danger = solid.map((s, i) => s && lv > 0 && RND() < dp && !(i === 0 && false)); const grp = new THREE.Group(); grp.position.y = -lv * GAP; const col = new THREE.Color().setHSL((lv * .07) % 1, .65, .6);
+        for (let i = 0; i < N; i++) if (solid[i]) { const m = new THREE.Mesh(new THREE.CylinderGeometry(RAD, RAD, .3, 6, 1, false, i * dth, dth - .02), new THREE.MeshStandardMaterial({ color: danger[i] ? 0xff2d4f : col, emissive: danger[i] ? 0xff2d4f : col, emissiveIntensity: danger[i] ? .55 : .12, roughness: .45 })); grp.add(m); }
+        tower.add(grp); rings.push({ y: -lv * GAP, solid, danger, grp, passed: false });
+      }
+      const fin3 = new THREE.Mesh(new THREE.CylinderGeometry(RAD + .4, RAD + .4, .5, 32), new THREE.MeshStandardMaterial({ color: 0x3dd6a5, emissive: 0x3dd6a5, emissiveIntensity: .5 })); fin3.position.y = -levels * GAP; tower.add(fin3);
+      const ball = neon(THREE, new THREE.SphereGeometry(BR, 24, 18), 0xffd23d, .35); ball.position.set(0, 2, BZ); scene.add(ball);
+      let rot = 0, by = 2, bv = 0, pts = 0, passed = 0, over = false, raf, last = 0, combo = 0, smash = 0, sq = 0, drag = false, lx = 0;
+      const hud = () => ctx.hud([H('score', pts), `${T('hud.round')} ${Math.min(passed + 1, levels)}/${levels}`]);
+      const fin = (win) => { over = true; cancelAnimationFrame(raf); ctx.sfx(win ? 'win' : 'bad'); if (!win) { ctx.flash('#ff2d4f'); ctx.shake(r.domElement); } setTimeout(() => ctx.end({ win, quality: win ? .8 + clamp(1 - smash / 3) * .2 : clamp(passed / levels) * .6, score: pts, label: T('hlx.lbl', { n: passed }) }), 600); };
+      const loop = (now) => {
+        if (over) return; const dt = Math.min((now - (last || now)) / 1000, .033); last = now; const prev = by - BR; bv = Math.max(bv - 26 * dt, -19); by += bv * dt; sq = Math.max(0, sq - dt * 5);
+        const la = (((-rot) % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2), idx = Math.floor(la / dth) % N;
+        if (bv < 0) {
+          for (const rg of rings) { const top = rg.y + .15; if (prev >= top - .02 && by - BR <= top) { if (rg.solid[idx]) { if (rg.danger[idx]) { ball.material.color.set(0xff2d4f); return fin(false); } by = top + BR; bv = 9.6; sq = 1; combo = 0; ctx.sfx('tap'); } break; } }
+          if (by - BR <= -levels * GAP + .25) { by = -levels * GAP + .25 + BR; pts += 500; return fin(true); }
+        }
+        rings.forEach((rg, i) => { if (!rg.passed && by - BR < rg.y - .2) { rg.passed = true; passed++; combo++; pts += 10 * combo; ctx.sfx('good', combo); ctx.combo(combo); hud(); rg.grp.visible = false; } });
+        ball.position.set(0, by, BZ); ball.scale.set(1 + sq * .25, 1 - sq * .3, 1 + sq * .25); tower.rotation.y = rot;
+        cam.position.set(0, by + 3.4, 10.5); cam.lookAt(0, by - 1.6, 0); r.render(scene, cam); raf = requestAnimationFrame(loop);
+      };
+      const cv = r.domElement; cv.addEventListener('pointerdown', (e) => { drag = true; lx = e.clientX; cv.setPointerCapture && cv.setPointerCapture(e.pointerId); }); cv.addEventListener('pointermove', (e) => { if (!drag) return; rot += (e.clientX - lx) * .012; lx = e.clientX; });
+      const up = () => { drag = false; }; cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
+      const kd = (e) => { if (e.key === 'ArrowLeft' || e.key === 'a') { e.preventDefault(); rot -= .22; } else if (e.key === 'ArrowRight' || e.key === 'd') { e.preventDefault(); rot += .22; } }; document.addEventListener('keydown', kd);
+      host.append($(`<p class="hint">${T('hlx.hint', { n: levels })}</p>`)); hud(); raf = requestAnimationFrame(loop);
+      return () => { over = true; cancelAnimationFrame(raf); document.removeEventListener('keydown', kd); kill(r); };
+    });
+  }
+
+  /* ---------- 22. Stack Tower (3D) ---------- */
+  function stack(stage, ctx) {
+    return with3d(stage, (THREE, host) => {
+      const W = 360, VH = 480, BH = .5, need = pick([12, 18, 25], ctx.diff), sp0 = pick([2.6, 3.4, 4.2], ctx.diff), asp = W / VH, VS = 6;
+      const r = mkR(THREE, host, W, VH), scene = new THREE.Scene(), cam = new THREE.OrthographicCamera(-VS * asp, VS * asp, VS, -VS, .1, 100); lit3(THREE, scene, 0xffffff, 0x554a88);
+      const col = (i) => new THREE.Color().setHSL(((i * 14) % 360) / 360, .62, .62);
+      const box = (w, d, i) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, BH, d), new THREE.MeshStandardMaterial({ color: col(i), roughness: .5, metalness: .1 })); return m; };
+      const placed = [{ x: 0, z: 0, w: 3.2, d: 3.2 }]; const b0 = box(3.2, 3.2, 0); b0.position.set(0, BH / 2, 0); scene.add(b0);
+      const base = new THREE.Mesh(new THREE.BoxGeometry(3.3, 40, 3.3), new THREE.MeshStandardMaterial({ color: 0x1d1840 })); base.position.y = -20; scene.add(base);
+      let cur = null, dir = 1, pos = -4.4, camY = 0, debris = [], perfect = 0, over = false, raf, last = 0, level = 0;
+      const axis = () => (level % 2 === 0 ? 'x' : 'z');
+      const spawn = () => { const p = placed[placed.length - 1]; cur = box(p.w, p.d, level + 1); cur.position.y = (level + 1) * BH + BH / 2; scene.add(cur); pos = -4.4; dir = 1; };
+      spawn();
+      const hud = () => ctx.hud([H('score', level), `${T('hud.goal')} ${need}`]);
+      const fin = () => { over = true; cancelAnimationFrame(raf); setTimeout(() => ctx.end({ win: level >= need, quality: clamp(level / (need * 1.4)), score: level * 100 + perfect * 50, label: T('stk.lbl', { n: level }) }), 700); };
+      const place = () => {
+        if (over) return; const p = placed[placed.length - 1], a = axis(), sz = a === 'x' ? p.w : p.d, delta = pos - p[a], ov = sz - Math.abs(delta);
+        if (ov <= 0) { debris.push({ m: cur, vy: 0, vx: 0, rv: .03 }); cur = null; ctx.sfx('bad'); ctx.flash('#ff6b5e'); return fin(); }
+        let np = { x: p.x, z: p.z, w: p.w, d: p.d };
+        if (Math.abs(delta) < .12) { perfect++; ctx.sfx('good', perfect); ctx.combo(perfect); ctx.pop(r.domElement, T('stk.perfect'), '#d6ff3d'); cur.scale.set(1.12, 1, 1.12); }
+        else {
+          perfect = 0; ctx.combo(0); ctx.sfx('tap'); const c = p[a] + delta / 2, rm = box(a === 'x' ? Math.abs(delta) : p.w, BH, 0); rm.geometry.dispose(); rm.geometry = new THREE.BoxGeometry(a === 'x' ? Math.abs(delta) : p.w, BH, a === 'z' ? Math.abs(delta) : p.d); rm.material = cur.material;
+          const s = Math.sign(delta), rc = pos + s * ov / 2; rm.position.set(a === 'x' ? rc : p.x, cur.position.y, a === 'z' ? rc : p.z); scene.add(rm); debris.push({ m: rm, vy: 0, vx: s * .6, ax: a, rv: s * .05 });
+          np[a] = c; if (a === 'x') np.w = ov; else np.d = ov; scene.remove(cur); cur = box(np.w, np.d, level + 1); cur.position.y = (level + 1) * BH + BH / 2; scene.add(cur);
+        }
+        if (Math.abs(delta) < .12) { np[a] = p[a]; }
+        cur.position.x = np.x; cur.position.z = np.z; placed.push(np); level++; hud(); if (level >= 60) return fin();
+        spawn();
+      };
+      const loop = (now) => {
+        if (over && !debris.length) { r.render(scene, cam); return; } const dt = Math.min((now - (last || now)) / 1000, .05); last = now;
+        if (cur && !over) { const a = axis(), p = placed[placed.length - 1], sp = sp0 + level * .1; pos += dir * sp * dt * 1.5; if (pos > 4.4) { pos = 4.4; dir = -1; } if (pos < -4.4) { pos = -4.4; dir = 1; }
+          cur.position.x = a === 'x' ? pos : p.x; cur.position.z = a === 'z' ? pos : p.z; cur.scale.x += (1 - cur.scale.x) * .2; cur.scale.z += (1 - cur.scale.z) * .2; }
+        debris.forEach((d) => { d.vy -= 24 * dt; d.m.position.y += d.vy * dt; d.m.rotation.z += d.rv; d.m.position.x += (d.ax === 'x' ? d.vx : 0) * dt * 2; }); debris = debris.filter((d) => { if (d.m.position.y < -14) { scene.remove(d.m); return false; } return true; });
+        camY += ((placed.length * BH) - camY) * Math.min(1, 4 * dt); cam.position.set(8, camY + 7, 8); cam.lookAt(0, camY - 1.4, 0); r.render(scene, cam); raf = requestAnimationFrame(loop);
+      };
+      const cv = r.domElement; cv.addEventListener('pointerdown', (e) => { e.preventDefault(); place(); });
+      const kd = (e) => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); place(); } }; document.addEventListener('keydown', kd);
+      host.append($(`<p class="hint">${T('stk.hint', { n: need })}</p>`)); hud(); raf = requestAnimationFrame(loop);
+      return () => { over = true; cancelAnimationFrame(raf); document.removeEventListener('keydown', kd); kill(r); };
+    });
+  }
+
   const svg = (d) => `<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
   window.ICON = {
     memory: svg('<rect x="3" y="6" width="11" height="14" rx="2"/><rect x="10" y="4" width="11" height="14" rx="2"/>'),
@@ -987,6 +1098,8 @@
     blaster: svg('<path d="M12 3l5 14-5-3-5 3z"/><path d="M12 19v3M5 6l2 2M19 6l-2 2"/>'),
     bubble: svg('<circle cx="8" cy="8" r="4"/><circle cx="16" cy="8" r="4"/><circle cx="12" cy="15" r="4"/>'),
     road: svg('<path d="M3 8h18M3 16h18"/><rect x="6" y="10" width="6" height="4" rx="1" fill="currentColor"/>'),
+    runner: svg('<path d="M4 20L9 4h6l5 16M12 6v3M12 12v3"/><rect x="10" y="16" width="4" height="3" rx=".8" fill="currentColor"/>'),
+    helix: svg('<path d="M5 6c4 2 10 2 14 0M5 12c4 2 10 2 14 0M5 18c4 2 10 2 14 0"/><circle cx="12" cy="3" r="1.500" fill="currentColor"/>'),
     ticket: svg('<path d="M3 9a2 2 0 002-2V6h14v1a2 2 0 002 2v2a2 2 0 000 2v2a2 2 0 00-2 2v1H5v-1a2 2 0 00-2-2v-2a2 2 0 000-2z"/><path d="M13 7v10" stroke-dasharray="2 2"/>'),
     cash: svg('<rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/>'),
     coin: svg('<circle cx="12" cy="12" r="8"/><path d="M12 8v8"/>'),
@@ -1025,8 +1138,10 @@
     { id: 'blaster', icon: ICON.blaster, color: '#ff7aa8', art: 'dots', tag: 'Speed', time: 120, mount: blaster },
     { id: 'bubble', icon: ICON.bubble, color: '#a56bff', art: 'rings', tag: 'Logic', time: 180, mount: bubble },
     { id: 'road', icon: ICON.road, color: '#ffa23d', art: 'lines', tag: 'Speed', time: 90, mount: road },
+    { id: 'runner', icon: ICON.runner, color: '#ff4fd8', art: 'lines', tag: 'Speed', time: 90, mount: runner },
+    { id: 'helix', icon: ICON.helix, color: '#ffd23d', art: 'rings', tag: 'Focus', time: 90, mount: helix },
   ];
-  const HOT = ['flap', 'dino', 'slice', 'blocks', 'brick', 'bubble', 'hop', 'blaster', 'road', 'snake', 'stack', 'mole'], NEWG = ['slice', 'brick', 'blocks', 'hop', 'blaster', 'bubble', 'road'];
+  const HOT = ['runner', 'helix', 'flap', 'dino', 'slice', 'blocks', 'brick', 'bubble', 'hop', 'blaster', 'road', 'snake', 'stack', 'mole'], NEWG = ['runner', 'helix', 'stack', 'slice', 'brick', 'blocks', 'hop', 'blaster', 'bubble', 'road'];
   GAMES.forEach((g) => { g.hot = HOT.includes(g.id); g.isNew = NEWG.includes(g.id); });
   /* ---------- banner art: one illustrated scene per game ---------- */
   const M = (id) => {
@@ -1065,6 +1180,8 @@
       blaster: () => `<path d="M100 56l16 30-16-8-16 8z" fill="var(--c)"/>` + [[50, 20], [100, 14], [150, 22]].map(([x, y]) => `<path d="M${x} ${y + 12}l-11-18h22z" fill="#ff6b5e" opacity=".85"/>`).join('') + w(99, 30, 3, 18, 1, 1) + c(60, 60, 1.5, 1, '#fff') + c(150, 66, 1.5, 1, '#fff'),
       bubble: () => [[50, 24, 0], [82, 24, 1], [114, 24, 2], [146, 24, 0], [66, 52, 2], [98, 52, 0], [130, 52, 1]].map(([x, y, k]) => c(x, y, 15, .92, ['#ff5c7a', '#ffa23d', '#5aa9ff'][k])).join('') + c(100, 88, 11, 1, '#fff') + `<path d="M100 76V64" stroke="#fff" stroke-width="2" stroke-dasharray="3 3"/>`,
       road: () => w(0, 34, 200, 32, .18, 0) + r(30, 40, 40, 20, 1, 6) + r(120, 40, 36, 20, .7, 6) + w(78, 8, 22, 24, 1, 6) + c(94, 16, 2.5, 1, '#14170a') + w(0, 49, 200, 2, .25, 0),
+      runner: () => `<path d="M60 100L92 28h16l32 72z" fill="#fff" opacity=".08"/><path d="M92 28L40 100M108 28l52 72" stroke="#fff" stroke-width="1.5" opacity=".35"/>` + r(70, 62, 22, 30, 1, 3) + r(112, 50, 24, 20, .7, 3) + c(100, 40, 5, 1, '#35e0ff') + `<rect x="92" y="70" width="16" height="16" rx="3" fill="#d6ff3d"/>`,
+      helix: () => `<rect x="94" y="0" width="12" height="100" fill="#fff" opacity=".12"/>` + [20, 46, 72].map((y, i) => `<ellipse cx="100" cy="${y}" rx="${46 - i * 4}" ry="8" fill="hsl(${40 + i * 60} 70% 62%)"/><ellipse cx="${100 + (i - 1) * 16}" cy="${y}" rx="14" ry="5" fill="#0e1013" opacity=".7"/>`).join('') + c(100, 8, 7, 1, '#fff'),
       blocks: () => r(88, 14, 24, 24, 1, 4) + r(64, 38, 24, 24, .7, 4) + r(88, 38, 24, 24, .85, 4) + r(112, 38, 24, 24, .55, 4) + w(40, 74, 120, 12, .25, 3),
     };
     return (L[id] || (() => ''))();
