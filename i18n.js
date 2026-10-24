@@ -123,7 +123,7 @@
     'v.rules': 'Everyone gets the same puzzle. Power-ups are off. Higher score wins; points are shared by rank.', 'v.rules3': 'Everyone gets the same puzzle. Power-ups are off. Higher score wins; points are shared by rank across 3 rounds.',
     'v.inprogress': 'Match in progress…', 'v.waitplayers': 'Waiting for players', 'v.start': 'Start match', 'v.waitstart': 'Waiting for host to start', 'v.lobby': 'Room lobby', 'v.localroom': 'Local room (this device)', 'v.onlineroom': 'Online room',
     'v.players': '{a}/{b} players', 'v.room': 'Room', 'v.copy': 'Copy link', 'v.share': 'Share', 'v.min': 'Minimise', 'v.closeroom': 'Close room', 'v.leave': 'Leave room', 'v.inroom': 'You are in a room', 'v.nplayers': '{n} player(s)',
-    'v.neterr': 'Could not reach the connection server. Check your internet and try again.', 'v.localwarn': 'This page is running on localhost, so the link only opens on this laptop. Your friend should open the same website on their laptop, go to Versus and type the room code.',
+    'v.relaying': 'Direct link blocked. Connecting through the relay…', 'v.neterr': 'Could not reach the connection server. Check your internet and try again.', 'v.localwarn': 'This page is running on localhost, so the link only opens on this laptop. Your friend should open the same website on their laptop, go to Versus and type the room code.',
     'v.openlobby': 'Open lobby', 'v.invite': 'Invitation', 'v.joinq': 'Join room {c}?', 'v.invited': 'A friend invited you to a Pixaquest duel as {n}.', 'v.joinroom': 'Join room',
   } };
   let lang = 'en', cur = D.en;

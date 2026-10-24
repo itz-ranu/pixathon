@@ -87,8 +87,41 @@
     });
   }
 
-  function localHost(code) {
-    const ch = new BroadcastChannel('pxq-' + code), conns = new Map();
+  /* Relay channel: same shape as BroadcastChannel but carried over the public ntfy.sh pub/sub service
+     (plain HTTPS + server-sent events), so it works through any router, firewall or school/work Wi-Fi
+     when a direct WebRTC link cannot be made. Chatty messages are coalesced to stay inside its rate limit. */
+  const SLOW = { room: 1200, prog: 1500, ping: 1e9, pong: 1e9 };
+  function relayChannel(code) {
+    return new Promise((res, rej) => {
+      const url = 'https://ntfy.sh/pxq-r-' + code;
+      let es, dead = false, last = {}, pend = {}, chain = Promise.resolve();
+      try { es = new EventSource(url + '/sse'); } catch (e) { return rej(e); }
+      const ch = {
+        onmessage: null,
+        postMessage(o) {
+          if (dead) return;
+          const t = o.data && o.data.t, gap = SLOW[t], key = o.to + ':' + t;
+          if (gap === undefined) return post(o);
+          if (gap >= 1e9) return; // relay peers are not heartbeat-checked
+          const wait = (last[key] || 0) + gap - Date.now();
+          if (wait <= 0) { last[key] = Date.now(); return post(o); }
+          if (!pend[key]) setTimeout(() => { const m = pend[key]; delete pend[key]; last[key] = Date.now(); if (m && !dead) post(m); }, wait);
+          pend[key] = o; // latest wins
+        },
+        close() { dead = true; try { es.close(); } catch {} }
+      };
+      const post = (o) => { chain = chain.then(() => send(o, 0)); };
+      const send = (o, n) => fetch(url, { method: 'POST', body: JSON.stringify(o) }).then((r) => { if (r.status === 429 && n < 4) return new Promise((k) => setTimeout(k, 2500)).then(() => send(o, n + 1)); }).catch(() => {});
+      es.onmessage = (e) => {
+        try { const d = JSON.parse(e.data); if (d.event === 'message' && ch.onmessage) ch.onmessage({ data: JSON.parse(d.message) }); } catch {}
+      };
+      const t = setTimeout(() => { ch.close(); rej(new Error('relay timeout')); }, 6000);
+      es.onopen = () => { clearTimeout(t); es.onopen = null; res(ch); };
+    });
+  }
+
+  function chanHost(ch, kind) {
+    const conns = new Map();
     let cb = () => {};
     ch.onmessage = (e) => {
       const m = e.data; if (!m || m.to !== 'host') return;
@@ -98,6 +131,7 @@
         const h = {}, q = [];
         c = {
           h,
+          relay: kind === 'relay',
           send: (o) => ch.postMessage({ to: m.from, data: o }),
           close: () => conns.delete(m.from),
           onData: (f) => { h.data = f; while (q.length) f(q.shift()); },
@@ -115,15 +149,16 @@
       if (c.h.data) c.h.data(m.data);
       else c._q.push(m.data);
     };
-    return { kind: 'local', onConn: (f) => (cb = f), close: () => ch.close() };
+    return { kind, onConn: (f) => (cb = f), close: () => ch.close() };
   }
+  const localHost = (code) => chanHost(new BroadcastChannel('pxq-' + code), 'local');
 
   async function peerJoin(code) {
     await loadPeer();
     return new Promise((res, rej) => {
       let resolved = false;
       const peer = new window.Peer(undefined, PEER_OPTS);
-      const t = setTimeout(() => { if (!resolved) { try { peer.destroy(); } catch {} rej(new Error('timeout')); } }, 12000);
+      const t = setTimeout(() => { if (!resolved) { try { peer.destroy(); } catch {} rej(new Error('timeout')); } }, 9000);
 
       peer.on('open', () => {
         const conn = peer.connect(PREFIX + code, { serialization: 'json', reliable: true });
@@ -143,11 +178,15 @@
     });
   }
 
-  function localJoin(code) {
+  const localJoin = (code) => chanJoin(new BroadcastChannel('pxq-' + code), 1800);
+  async function relayJoin(code) { return chanJoin(await relayChannel(code), 9000, true); }
+  async function relayHost(code) { return chanHost(await relayChannel(code), 'relay'); }
+  function chanJoin(ch, wait, relay) {
     return new Promise((res, rej) => {
-      const ch = new BroadcastChannel('pxq-' + code), h = {}, q = [];
+      const h = {}, q = [];
       let ok = false;
       const w = {
+        relay: !!relay,
         send: (o) => ch.postMessage({ to: 'host', from: uid, data: o }),
         close: () => {
           try { ch.postMessage({ to: 'host', from: uid, data: { t: 'bye' } }); ch.close(); } catch {}
@@ -163,7 +202,7 @@
         else q.push(m.data);
       };
 
-      const t = setTimeout(() => { ch.close(); rej(new Error('no host')); }, 1800);
+      const t = setTimeout(() => { ch.close(); rej(new Error('no host')); }, wait);
       w.send({ t: 'hello', id: uid, name: API.S.name, av: API.S.avatar });
     });
   }
@@ -373,8 +412,8 @@
       const now = Date.now();
       if (room.host) {
         bcast({ t: 'ping' });
-        [...room.conns.keys()].forEach((id) => { if (now - (room.seen.get(id) || now) > DEAD_MS) removePlayer(id); });
-      } else if (now - room.lastRecv > DEAD_MS) {
+        [...room.conns.entries()].forEach(([id, c]) => { if (!c.relay && now - (room.seen.get(id) || now) > DEAD_MS) removePlayer(id); });
+      } else if (!room.conn.relay && now - room.lastRecv > DEAD_MS) {
         leave(false, T('v.disc'));
       }
     }, PING_MS);
@@ -384,16 +423,19 @@
   async function create() {
     if (room) return openLobby();
     API.toast(T('v.creating'));
-    let code = mkCode(), tr = null, local = false;
-
+    let code = mkCode(), peerTr = null, relayTr = null;
     try {
-      tr = await peerHost(code);
+      peerTr = await peerHost(code);
     } catch (e) {
       if (e && e.type === 'unavailable-id') {
-        try { code = mkCode(); tr = await peerHost(code); } catch { tr = null; }
+        code = mkCode();
+        try { peerTr = await peerHost(code); } catch { peerTr = null; }
       }
-      if (!tr) { tr = localHost(code); local = true; }
     }
+    // always also listen on the HTTPS relay: it is the path that works when WebRTC is blocked between two networks
+    try { relayTr = await relayHost(code); } catch { relayTr = null; }
+    const local = !peerTr && !relayTr, trs = [peerTr, relayTr, localHost(code)].filter(Boolean);
+    const tr = { onConn: (f) => trs.forEach((x) => x.onConn(f)), close: () => trs.forEach((x) => x.close()) };
 
     const firstGame = API.GAMES && API.GAMES[0] ? API.GAMES[0].id : '';
     const cfg = { mode: 'duel', game: firstGame, games: pick3(), diff: (API.S && API.S.diff) ?? 1 };
@@ -427,13 +469,10 @@
     const forceLocal = new URLSearchParams(location.search).get('l') === '1';
 
     if (!forceLocal) {
-      for (let i = 0; i < 2 && !conn; i++) {
-        try { conn = await peerJoin(code); } catch (e) {
-          // a missing room won't appear by retrying; a slow network might
-          if (e && e.type === 'peer-unavailable') break;
-          netErr = true;
-          if (i === 0) await new Promise((r) => setTimeout(r, 600));
-        }
+      try { if (new URLSearchParams(location.search).get('relay') === '1') throw new Error('relay only'); conn = await peerJoin(code); } catch (e) { netErr = !(e && e.type === 'peer-unavailable'); }
+      if (!conn) {
+        API.toast(T('v.relaying'));
+        try { conn = await relayJoin(code); netErr = false; } catch { conn = null; }
       }
     }
     if (!conn) {

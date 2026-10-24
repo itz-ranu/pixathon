@@ -47,12 +47,12 @@
 
   /* ---------- 2. Slide Master ---------- */
   function slide(stage, ctx) {
-    const N = pick([3, 3, 4], ctx.diff), T = N * N; let t = Array.from({ length: T }, (_, i) => (i + 1) % T), moves = 0, done = false, lastMoved = -1;
+    const N = pick([3, 3, 4], ctx.diff), NN = N * N; let t = Array.from({ length: NN }, (_, i) => (i + 1) % NN), moves = 0, done = false, lastMoved = -1;
     const nb = (z) => { const r = Math.floor(z / N), c = z % N, o = []; if (r > 0) o.push(z - N); if (r < N - 1) o.push(z + N); if (c > 0) o.push(z - 1); if (c < N - 1) o.push(z + 1); return o; };
     let prev = -1;
     for (let i = 0; i < pick([24, 70, 160], ctx.diff); i++) { const z = t.indexOf(0), o = nb(z).filter((x) => x !== prev), m = o[ri(0, o.length - 1)]; [t[z], t[m]] = [t[m], t[z]]; prev = z; }
-    const solved = () => t.every((x, k) => x === (k + 1) % T);
-    if (solved()) { [t[T - 2], t[T - 1]] = [t[T - 1], t[T - 2]]; }
+    const solved = () => t.every((x, k) => x === (k + 1) % NN);
+    if (solved()) { [t[NN - 2], t[NN - 1]] = [t[NN - 1], t[NN - 2]]; }
     const board = $('<div class="slide-board"></div>'), tiles = {}, sz = 100 / N;
     const hud = () => ctx.hud([H('moves', moves)]);
     const place = () => t.forEach((v, i) => { if (v) { tiles[v].style.setProperty('--x', i % N); tiles[v].style.setProperty('--y', Math.floor(i / N)); } });
@@ -63,8 +63,8 @@
       if (solved()) { done = true; Object.values(tiles).forEach((e) => e.classList.add('ok')); ctx.sfx('win'); ctx.burst(board, '#3dd6a5', 40);
         const par = pick([14, 24, 70], ctx.diff); setTimeout(() => ctx.end({ win: true, quality: clamp(1 - (moves - par) / (par * 2.2)), score: Math.max(0, 1000 - moves * 8) + N * 100, label: T('lbl.moves', { n: moves }) }), 800); }
     };
-    for (let v = 1; v < T; v++) { const e = $(`<button class="tile2" aria-label="Tile ${v}" style="--h:${150 + v * (210 / T)};width:${sz}%;height:${sz}%"><i style="font-size:${N === 4 ? '1.5rem' : '2rem'}">${v}</i></button>`); e.onclick = () => tryMove(t.indexOf(v)); tiles[v] = e; board.append(e); }
-    const key = (e) => { const z = t.indexOf(0), i = { ArrowLeft: z % N < N - 1 ? z + 1 : -1, ArrowRight: z % N > 0 ? z - 1 : -1, ArrowUp: z + N, ArrowDown: z - N }[e.key]; if (i === undefined) return; e.preventDefault(); if (i >= 0 && i < T) tryMove(i); };
+    for (let v = 1; v < NN; v++) { const e = $(`<button class="tile2" aria-label="Tile ${v}" style="--h:${150 + v * (210 / NN)};width:${sz}%;height:${sz}%"><i style="font-size:${N === 4 ? '1.5rem' : '2rem'}">${v}</i></button>`); e.onclick = () => tryMove(t.indexOf(v)); tiles[v] = e; board.append(e); }
+    const key = (e) => { const z = t.indexOf(0), i = { ArrowLeft: z % N < N - 1 ? z + 1 : -1, ArrowRight: z % N > 0 ? z - 1 : -1, ArrowUp: z + N, ArrowDown: z - N }[e.key]; if (i === undefined) return; e.preventDefault(); if (i >= 0 && i < NN) tryMove(i); };
     document.addEventListener('keydown', key); place(); hud();
     ctx.power({ label: T('pw.hint'), cost: 10, use: () => { const z = t.indexOf(0), md = (a, b) => Math.abs(Math.floor(a / N) - Math.floor(b / N)) + Math.abs((a % N) - (b % N));
       let best = null, bd = 99; nb(z).forEach((i) => { const v = t[i]; if (v === lastMoved) return; const d = md(z, v - 1) - md(i, v - 1); if (d < bd) { bd = d; best = v; } });
