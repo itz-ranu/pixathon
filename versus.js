@@ -90,7 +90,7 @@
   /* Relay channel: same shape as BroadcastChannel but carried over the public ntfy.sh pub/sub service
      (plain HTTPS + server-sent events), so it works through any router, firewall or school/work Wi-Fi
      when a direct WebRTC link cannot be made. Chatty messages are coalesced to stay inside its rate limit. */
-  const SLOW = { room: 1200, prog: 1500, ping: 1e9, pong: 1e9 };
+  const SLOW = { room: 5000, prog: 8000, ping: 1e9, pong: 1e9 };
   function relayChannel(code) {
     return new Promise((res, rej) => {
       const url = 'https://ntfy.sh/pxq-r-' + code;
@@ -101,7 +101,7 @@
         postMessage(o) {
           if (dead) return;
           const t = o.data && o.data.t, gap = SLOW[t], key = o.to + ':' + t;
-          if (gap === undefined) return post(o);
+          if (gap === undefined) return send(o, 0); // start / done / results go straight out, never queued behind chatter
           if (gap >= 1e9) return; // relay peers are not heartbeat-checked
           const wait = (last[key] || 0) + gap - Date.now();
           if (wait <= 0) { last[key] = Date.now(); return post(o); }
@@ -111,7 +111,7 @@
         close() { dead = true; try { es.close(); } catch {} }
       };
       const post = (o) => { chain = chain.then(() => send(o, 0)); };
-      const send = (o, n) => fetch(url, { method: 'POST', body: JSON.stringify(o) }).then((r) => { if (r.status === 429 && n < 4) return new Promise((k) => setTimeout(k, 2500)).then(() => send(o, n + 1)); }).catch(() => {});
+      const send = (o, n) => fetch(url, { method: 'POST', body: JSON.stringify(o) }).then((r) => { if (r.status === 429 && n < 8) return new Promise((k) => setTimeout(k, 2500)).then(() => send(o, n + 1)); }).catch(() => {});
       es.onmessage = (e) => {
         try { const d = JSON.parse(e.data); if (d.event === 'message' && ch.onmessage) ch.onmessage({ data: JSON.parse(d.message) }); } catch {}
       };
