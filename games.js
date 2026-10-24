@@ -1,4 +1,4 @@
-/* Fourteen puzzle games. Each mount(stage, ctx) returns a cleanup fn.
+/* Eighteen puzzle games. Each mount(stage, ctx) returns a cleanup fn.
    ctx: sfx, hud, end({win,quality,score,label}), burst(el,color,n), pop(el,text,color), shake(el),
         diff (0 easy,1 normal,2 hard), combo(n), flash(color), power({label,cost,use(btn)}) */
 (function () {
@@ -357,6 +357,150 @@
     return () => { clearInterval(timer); over = true; to.forEach(clearTimeout); };
   }
 
+  /* ---------- 15. Wavelength ---------- */
+  const SPECTRA = [
+    ['Cold', 'Hot', [['Ice cube', 3], ['Fridge', 12], ['Spring day', 40], ['Bath water', 62], ['Sauna', 85], ['Lava', 98]]],
+    ['Small', 'Big', [['Ant', 3], ['Mouse', 10], ['Dog', 35], ['Horse', 60], ['Elephant', 85], ['Whale', 97]]],
+    ['Slow', 'Fast', [['Snail', 2], ['Turtle', 8], ['Jogger', 25], ['Bicycle', 38], ['Car', 60], ['Jet', 90]]],
+    ['Cheap', 'Expensive', [['Chewing gum', 4], ['Burger', 15], ['Sneakers', 45], ['Laptop', 62], ['New car', 82], ['Yacht', 97]]],
+    ['Soft', 'Hard', [['Cloud', 3], ['Pillow', 10], ['Sponge', 25], ['Wood', 65], ['Rock', 88], ['Diamond', 98]]],
+    ['Quiet', 'Loud', [['Whisper', 5], ['Library', 12], ['Rainfall', 30], ['Traffic', 60], ['Concert', 85], ['Jet engine', 97]]],
+    ['Sweet', 'Sour', [['Candy', 8], ['Ripe mango', 20], ['Apple', 40], ['Orange', 58], ['Lemon', 92], ['Vinegar', 98]]],
+    ['Ancient', 'Modern', [['Dinosaur', 2], ['Castle', 15], ['Typewriter', 35], ['Old TV', 58], ['Smartphone', 90], ['Robot', 97]]],
+    ['Boring', 'Thrilling', [['Watching paint dry', 3], ['Waiting in line', 12], ['Board game', 38], ['Movie night', 55], ['Roller coaster', 85], ['Skydiving', 97]]],
+    ['Safe', 'Dangerous', [['Teddy bear', 3], ['Bicycle helmet', 10], ['Kitchen knife', 40], ['Campfire', 55], ['Shark', 85], ['Volcano', 96]]],
+  ];
+  function wave(stage, ctx) {
+    const R = 5, rounds = shuffle(SPECTRA).slice(0, R).map(([a, b, items]) => ({ a, b, it: items[ri(0, items.length - 1)] }));
+    let idx = 0, pts = 0, scoreSum = 0, locked = false, hintUsed = false, over = false;
+    const bar = $('<div class="wv-bar"><i class="wv-band" hidden></i><i class="wv-tgt" hidden></i><i class="wv-guess"></i></div>'), tgt = bar.querySelector('.wv-tgt'), gs = bar.querySelector('.wv-guess'), band = bar.querySelector('.wv-band');
+    const ends = $('<div class="wv-ends"><b></b><b></b></div>'), q = $('<div class="q wv-q"></div>');
+    const rng = $('<input class="wv-range" type="range" min="0" max="100" value="50" aria-label="Position on the spectrum">');
+    const go = $(`<button class="btn primary">${T('wv.lock')}</button>`), msg = $('<p class="hint" style="min-height:22px;margin-top:10px"></p>');
+    const hud = () => ctx.hud([H('round', `${Math.min(idx + 1, R)}/${R}`), H('score', pts)]);
+    const sync = () => { gs.style.left = rng.value + '%'; };
+    const load = () => { const r = rounds[idx]; locked = false; hintUsed = false; ends.children[0].textContent = r.a; ends.children[1].textContent = r.b; q.textContent = r.it[0]; tgt.hidden = true; band.hidden = true; rng.disabled = false; go.disabled = false; msg.textContent = T('wv.hint'); rng.value = 50; sync(); hud(); };
+    rng.oninput = sync;
+    go.onclick = () => {
+      if (locked || over) return; locked = true; rng.disabled = true; go.disabled = true;
+      const r = rounds[idx], target = r.it[1], d = Math.abs(+rng.value - target), p = d <= 4 ? 4 : d <= 10 ? 3 : d <= 18 ? 2 : d <= 30 ? 1 : 0;
+      pts += p; scoreSum += Math.max(0, Math.round(100 - d * 2.5)); tgt.style.left = target + '%'; tgt.hidden = false;
+      if (p >= 3) { ctx.sfx('win'); ctx.burst(bar, '#4fd1e0', 26); } else if (p) ctx.sfx('good', p); else { ctx.sfx('bad'); ctx.shake(bar); }
+      ctx.combo(p >= 3 ? ++streak : (streak = 0)); ctx.pop(bar, p === 4 ? T('wv.bull') : p ? `+${p}` : T('wv.miss'), p >= 3 ? '#4fd1e0' : '#ff6b5e');
+      msg.textContent = T('wv.off', { n: Math.round(d) }); hud();
+      setTimeout(() => { idx++; if (idx >= R) fin(); else load(); }, 1700);
+    };
+    let streak = 0;
+    function fin() { if (over) return; over = true; ctx.end({ win: pts >= 9, quality: clamp(pts / 20), score: scoreSum + pts * 20, label: T('wv.lbl', { n: pts }) }); }
+    const kd = (e) => { if (e.key === 'Enter' && !locked) go.click(); };
+    document.addEventListener('keydown', kd);
+    stage.append($('<div class="center"></div>')); const box = stage.firstChild; box.append(ends, bar, q, rng, go, msg); load();
+    ctx.power({ label: T('pw.hint'), cost: 10, use: () => { if (locked || hintUsed) return; hintUsed = true; const t = rounds[idx].it[1]; band.style.left = Math.max(0, t - 18) + '%'; band.style.width = (Math.min(100, t + 18) - Math.max(0, t - 18)) + '%'; band.hidden = false; } });
+    return () => document.removeEventListener('keydown', kd);
+  }
+
+  /* ---------- 16. Snake ---------- */
+  function snake(stage, ctx) {
+    const N = 15, tick = pick([150, 120, 95], ctx.diff), need = pick([6, 8, 10], ctx.diff);
+    let body = [[7, 7], [6, 7], [5, 7]], dir = [1, 0], next = [1, 0], food = null, gold = null, apples = 0, pts = 0, left = 75, over = false, combo = 0;
+    const cv = $('<canvas class="snk" width="450" height="450" aria-label="Snake board"></canvas>'), g = cv.getContext('2d'), C = 450 / N;
+    const free = (x, y) => !body.some(([a, b]) => a === x && b === y) && !(food && food[0] === x && food[1] === y) && !(gold && gold[0] === x && gold[1] === y);
+    const spawn = () => { for (let k = 0; k < 200; k++) { const x = ri(0, N - 1), y = ri(0, N - 1); if (free(x, y)) return [x, y]; } return null; };
+    food = spawn();
+    const draw = () => {
+      g.fillStyle = '#12151b'; g.fillRect(0, 0, 450, 450);
+      g.fillStyle = 'rgba(255,255,255,.035)'; for (let x = 0; x < N; x++) for (let y = 0; y < N; y++) if ((x + y) % 2) g.fillRect(x * C, y * C, C, C);
+      const dot = (p, col, r) => { g.fillStyle = col; g.beginPath(); g.arc(p[0] * C + C / 2, p[1] * C + C / 2, C * r, 0, 7); g.fill(); };
+      if (food) dot(food, '#ff6b5e', .36); if (gold) dot(gold, '#f2d45c', .42);
+      body.forEach((p, i) => { g.fillStyle = i ? `hsl(${150 - i * 3} 60% ${52 - Math.min(i, 14)}%)` : '#d6ff3d'; g.beginPath(); g.roundRect(p[0] * C + 2, p[1] * C + 2, C - 4, C - 4, 7); g.fill(); });
+    };
+    const hud = () => ctx.hud([H('score', apples), { t: `${left}s`, low: left <= 10 }, `${apples}/${need}`]);
+    const turn = (d) => { if (d[0] === -dir[0] && d[1] === -dir[1]) return; next = d; };
+    const step = () => {
+      if (over) return; dir = next; const h = [body[0][0] + dir[0], body[0][1] + dir[1]];
+      if (h[0] < 0 || h[1] < 0 || h[0] >= N || h[1] >= N || body.slice(0, -1).some(([a, b]) => a === h[0] && b === h[1])) return crash();
+      body.unshift(h); let ate = false;
+      if (food && h[0] === food[0] && h[1] === food[1]) { ate = true; apples++; combo++; pts += 100; ctx.sfx('good', combo); ctx.combo(combo); ctx.burst(cv, '#ff6b5e', 14); food = spawn(); if (apples % 4 === 0 && !gold) { gold = spawn(); setTimeout(() => { gold = null; }, 6000); } }
+      else if (gold && h[0] === gold[0] && h[1] === gold[1]) { ate = true; apples += 2; pts += 300; left += 5; gold = null; ctx.sfx('win'); ctx.flash('#f2d45c'); ctx.pop(cv, T('snk.gold'), '#f2d45c'); }
+      if (!ate) body.pop();
+      if (!food) food = spawn(); hud(); draw();
+    };
+    const crash = () => { over = true; clearInterval(iv); clearInterval(tm); ctx.sfx('bad'); ctx.shake(cv); setTimeout(() => ctx.end({ win: apples >= need, quality: clamp(apples / (need * 2)), score: pts + body.length * 5, label: T('snk.lbl', { n: apples }) }), 600); };
+    const iv = setInterval(step, tick);
+    const tm = setInterval(() => { left--; if (left <= 0) { over = true; clearInterval(iv); clearInterval(tm); ctx.end({ win: apples >= need, quality: clamp(apples / (need * 2)), score: pts + body.length * 5, label: T('snk.lbl', { n: apples }) }); } else hud(); }, 1000);
+    const KEYS = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1], a: [-1, 0], d: [1, 0], w: [0, -1], s: [0, 1] };
+    const kd = (e) => { const d = KEYS[e.key]; if (d) { e.preventDefault(); turn(d); } };
+    let sx, sy; cv.style.touchAction = 'none';
+    cv.addEventListener('touchstart', (e) => { sx = e.touches[0].clientX; sy = e.touches[0].clientY; }, { passive: true });
+    cv.addEventListener('touchmove', (e) => { const dx = e.touches[0].clientX - sx, dy = e.touches[0].clientY - sy; if (Math.max(Math.abs(dx), Math.abs(dy)) > 22) { turn(Math.abs(dx) > Math.abs(dy) ? [dx < 0 ? -1 : 1, 0] : [0, dy < 0 ? -1 : 1]); sx = e.touches[0].clientX; sy = e.touches[0].clientY; } }, { passive: true });
+    document.addEventListener('keydown', kd);
+    const pad = $('<div class="snk-pad"><button aria-label="Up">▲</button><div><button aria-label="Left">◀</button><button aria-label="Down">▼</button><button aria-label="Right">▶</button></div></div>');
+    const dirs = [[0, -1], [-1, 0], [0, 1], [1, 0]]; [...pad.querySelectorAll('button')].forEach((b, i) => { b.onclick = () => turn(dirs[i]); });
+    stage.append(cv, pad, $(`<p class="hint">${T('snk.hint', { n: need })}</p>`)); draw(); hud();
+    ctx.power({ label: T('pw.secs', { n: 10 }), cost: 15, use: () => { left += 10; hud(); } });
+    return () => { over = true; clearInterval(iv); clearInterval(tm); document.removeEventListener('keydown', kd); };
+  }
+
+  /* ---------- 17. Word Guess ---------- */
+  const W5 = ['about', 'above', 'actor', 'adult', 'after', 'again', 'alarm', 'alive', 'angle', 'apple', 'arrow', 'beach', 'beard', 'berry', 'black', 'blade', 'blank', 'bread', 'brick', 'brush', 'candy', 'chair', 'chalk', 'charm', 'chess', 'chill', 'cloud', 'clown', 'coast', 'crane', 'crown', 'dance', 'dream', 'drink', 'earth', 'eagle', 'field', 'flame', 'flute', 'frost', 'fruit', 'ghost', 'giant', 'grape', 'grass', 'happy', 'heart', 'honey', 'house', 'juice', 'knife', 'lemon', 'light', 'magic', 'mango', 'maple', 'music', 'night', 'ocean', 'olive', 'paint', 'peace', 'pearl', 'piano', 'pizza', 'plant', 'queen', 'quick', 'radio', 'river', 'robot', 'salad', 'shark', 'sheep', 'shine', 'smile', 'snake', 'spice', 'storm', 'sugar', 'table', 'tiger', 'toast', 'train', 'water', 'whale', 'wheel', 'youth', 'zebra'];
+  function wordle(stage, ctx) {
+    const MAX = pick([7, 6, 5], ctx.diff), word = W5[ri(0, W5.length - 1)];
+    let guesses = [], cur = '', over = false, states = {}, hinted = 0;
+    const board = $('<div class="wd-grid"></div>'), kb = $('<div class="wd-kb"></div>'), msg = $('<p class="hint" style="min-height:22px;margin:8px 0"></p>');
+    const rate = (g) => { const res = Array(5).fill('x'), left = word.split(''); g.split('').forEach((c, i) => { if (c === word[i]) { res[i] = 'g'; left[i] = null; } }); g.split('').forEach((c, i) => { if (res[i] === 'x') { const k = left.indexOf(c); if (k >= 0) { res[i] = 'y'; left[k] = null; } } }); return res; };
+    const hud = () => ctx.hud([H('try', `${Math.min(guesses.length + 1, MAX)}/${MAX}`)]);
+    const draw = () => {
+      board.innerHTML = '';
+      for (let r = 0; r < MAX; r++) { const row = $('<div class="wd-row"></div>'); const g = guesses[r], res = g && rate(g.w);
+        for (let c = 0; c < 5; c++) row.append($(`<span class="wd-t ${g ? res[c] : ''} ${!g && r === guesses.length && cur[c] ? 'f' : ''}">${g ? g.w[c] : r === guesses.length ? (cur[c] || '') : ''}</span>`));
+        board.append(row); }
+      kb.querySelectorAll('button[data-k]').forEach((b) => { b.className = 'wd-k ' + (states[b.dataset.k] || ''); }); hud();
+    };
+    const type = (ch) => { if (over || cur.length >= 5) return; cur += ch; ctx.sfx('tap'); draw(); };
+    const del = () => { if (over) return; cur = cur.slice(0, -1); draw(); };
+    const submit = () => {
+      if (over) return; if (cur.length < 5) { ctx.shake(board); msg.textContent = T('wd.short'); return; }
+      msg.textContent = ''; const res = rate(cur); guesses.push({ w: cur });
+      res.forEach((r, i) => { const c = cur[i], rank = { x: 0, y: 1, g: 2 }; if (!states[c] || rank[r] > rank[{ x: 'x', y: 'y', g: 'g' }[states[c]] || 'x']) states[c] = r; });
+      const won = cur === word; cur = ''; draw();
+      if (won) { over = true; ctx.sfx('win'); ctx.burst(board, '#3dd6a5', 50); const n = guesses.length; setTimeout(() => ctx.end({ win: true, quality: clamp(1 - (n - 1) / MAX), score: (MAX + 1 - n) * 150 + 100 - hinted * 40, label: T('wd.lbl', { n }) }), 800); }
+      else if (guesses.length >= MAX) { over = true; ctx.sfx('bad'); msg.textContent = T('wd.was', { w: word.toUpperCase() }); setTimeout(() => ctx.end({ win: false, quality: .1, score: 0, label: T('wd.lost') }), 1800); }
+      else ctx.sfx('good', res.filter((x) => x === 'g').length);
+    };
+    ['qwertyuiop', 'asdfghjkl', 'zxcvbnm'].forEach((row, i) => { const r = $('<div class="wd-krow"></div>'); if (i === 2) { const e = $(`<button class="wd-k wide">${T('wd.enter')}</button>`); e.onclick = submit; r.append(e); }
+      row.split('').forEach((c) => { const b = $(`<button class="wd-k" data-k="${c}">${c}</button>`); b.onclick = () => type(c); r.append(b); });
+      if (i === 2) { const d = $('<button class="wd-k wide" aria-label="Delete">⌫</button>'); d.onclick = del; r.append(d); } kb.append(r); });
+    const kd = (e) => { if (e.ctrlKey || e.metaKey || e.altKey) return; const k = e.key.toLowerCase(); if (k === 'enter') submit(); else if (k === 'backspace') del(); else if (/^[a-z]$/.test(k)) type(k); };
+    document.addEventListener('keydown', kd);
+    stage.append(board, msg, kb); draw();
+    ctx.power({ label: T('pw.reveal'), cost: 15, use: () => { if (over || hinted >= 2) return; const known = new Set(guesses.flatMap((g) => rate(g.w).map((r, i) => (r === 'g' ? i : -1)))); const idxs = [0, 1, 2, 3, 4].filter((i) => !known.has(i)); if (!idxs.length) return; const i = idxs[ri(0, idxs.length - 1)]; hinted++; msg.textContent = T('wd.letter', { n: i + 1, c: word[i].toUpperCase() }); } });
+    return () => document.removeEventListener('keydown', kd);
+  }
+
+  /* ---------- 18. Tic-Tac-Toe ---------- */
+  function tictac(stage, ctx) {
+    const LINES = [[0, 1, 2], [3, 4, 5], [6, 7, 8], [0, 3, 6], [1, 4, 7], [2, 5, 8], [0, 4, 8], [2, 4, 6]], ROUNDS = 3, skill = pick([.35, .75, .95], ctx.diff);
+    let b, round = 0, wins = 0, draws = 0, losses = 0, turn = 'X', busy = false, over = false, to = [];
+    const win = (bd) => { for (const [a, c, d] of LINES) if (bd[a] && bd[a] === bd[c] && bd[a] === bd[d]) return bd[a]; return bd.every(Boolean) ? 'D' : null; };
+    const minimax = (bd, who) => { const w = win(bd); if (w === 'O') return 1; if (w === 'X') return -1; if (w === 'D') return 0; let best = who === 'O' ? -2 : 2; for (let i = 0; i < 9; i++) if (!bd[i]) { bd[i] = who; const v = minimax(bd, who === 'O' ? 'X' : 'O'); bd[i] = ''; best = who === 'O' ? Math.max(best, v) : Math.min(best, v); } return best; };
+    const aiMove = () => { const e = [...Array(9).keys()].filter((i) => !b[i]); if (RND() > skill) return e[ri(0, e.length - 1)];
+      let bestV = -2, moves = []; e.forEach((i) => { b[i] = 'O'; const v = minimax(b, 'X'); b[i] = ''; if (v > bestV) { bestV = v; moves = [i]; } else if (v === bestV) moves.push(i); }); return moves[ri(0, moves.length - 1)]; };
+    const grid = $('<div class="ttt"></div>'), msg = $('<p class="hint" style="min-height:22px;margin-top:12px"></p>');
+    const hud = () => ctx.hud([H('round', `${Math.min(round + 1, ROUNDS)}/${ROUNDS}`), `${T('ttt.w')} ${wins}`, `${T('ttt.l')} ${losses}`]);
+    const draw = (line) => { grid.innerHTML = ''; b.forEach((v, i) => { const c = $(`<button class="ttt-c ${v} ${line && line.includes(i) ? 'hit' : ''}" aria-label="Cell ${i + 1} ${v || 'empty'}">${v === 'X' ? '✕' : v === 'O' ? '◯' : ''}</button>`); c.onclick = () => play(i); grid.append(c); }); hud(); };
+    const newRound = () => { b = Array(9).fill(''); turn = round % 2 === 0 ? 'X' : 'O'; busy = false; draw(); msg.textContent = turn === 'X' ? T('ttt.you') : T('ttt.ai'); if (turn === 'O') { busy = true; to.push(setTimeout(ai, 600)); } };
+    const check = () => { const w = win(b); if (!w) return false; busy = true;
+      const line = LINES.find(([x, y, z]) => b[x] && b[x] === b[y] && b[x] === b[z]); draw(line);
+      if (w === 'X') { wins++; ctx.sfx('win'); ctx.burst(grid, '#3dd6a5', 40); ctx.combo(wins); msg.textContent = T('ttt.won'); } else if (w === 'O') { losses++; ctx.sfx('bad'); ctx.shake(grid); ctx.combo(0); msg.textContent = T('ttt.lost'); } else { draws++; ctx.sfx('tap'); msg.textContent = T('ttt.draw'); }
+      hud(); round++; to.push(setTimeout(() => { if (round >= ROUNDS) fin(); else newRound(); }, 1400)); return true; };
+    function play(i) { if (busy || over || b[i]) return; b[i] = 'X'; ctx.sfx('tap'); draw(); if (check()) return; busy = true; msg.textContent = T('ttt.ai'); to.push(setTimeout(ai, 450)); }
+    function ai() { if (over) return; b[aiMove()] = 'O'; draw(); if (check()) return; busy = false; msg.textContent = T('ttt.you'); }
+    function fin() { if (over) return; over = true; const pts = wins * 3 + draws; ctx.end({ win: wins >= 2 || (wins >= 1 && losses === 0), quality: clamp(pts / 9), score: wins * 300 + draws * 100, label: T('ttt.lbl', { w: wins, d: draws, l: losses }) }); }
+    stage.append(grid, msg, $(`<p class="hint">${T('ttt.hint')}</p>`)); newRound();
+    ctx.power({ label: T('pw.hint'), cost: 10, use: () => { if (busy || over) return; let bestV = -2, mv = []; [...Array(9).keys()].filter((i) => !b[i]).forEach((i) => { b[i] = 'X'; const v = -minimax(b, 'O'); b[i] = ''; if (v > bestV) { bestV = v; mv = [i]; } else if (v === bestV) mv.push(i); }); const c = grid.children[mv[0]]; if (c) { c.classList.add('hint'); setTimeout(() => c.classList.remove('hint'), 1400); } } });
+    return () => { over = true; to.forEach(clearTimeout); };
+  }
+
   const svg = (d) => `<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
   window.ICON = {
     memory: svg('<rect x="3" y="6" width="11" height="14" rx="2"/><rect x="10" y="4" width="11" height="14" rx="2"/>'),
@@ -373,6 +517,10 @@
     sweep: svg('<circle cx="12" cy="13" r="6"/><path d="M12 7V4M7 8L5 6M17 8l2-2M5 13H2M22 13h-3"/>'),
     code: svg('<circle cx="7" cy="8" r="3"/><circle cx="17" cy="8" r="3"/><circle cx="7" cy="17" r="3" fill="currentColor"/><circle cx="17" cy="17" r="3"/>'),
     rush: svg('<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="0.8" fill="currentColor"/>'),
+    wave: svg('<path d="M3 15c3 0 3-6 6-6s3 6 6 6 3-6 6-6"/><path d="M12 4v16" stroke-dasharray="2 2"/>'),
+    snake: svg('<path d="M5 18h9a4 4 0 000-8H9a3 3 0 010-6h9"/><circle cx="18" cy="4" r="1" fill="currentColor"/>'),
+    wordle: svg('<rect x="3" y="5" width="5" height="5" rx="1"/><rect x="9.500" y="5" width="5" height="5" rx="1" fill="currentColor"/><rect x="16" y="5" width="5" height="5" rx="1"/><rect x="3" y="12" width="5" height="5" rx="1"/><rect x="9.500" y="12" width="5" height="5" rx="1"/>'),
+    tictac: svg('<path d="M9 3v18M15 3v18M3 9h18M3 15h18"/><path d="M4.500 4.500l3 3M7.500 4.500l-3 3"/><circle cx="12" cy="12" r="1.800"/>'),
     ticket: svg('<path d="M3 9a2 2 0 002-2V6h14v1a2 2 0 002 2v2a2 2 0 000 2v2a2 2 0 00-2 2v1H5v-1a2 2 0 00-2-2v-2a2 2 0 000-2z"/><path d="M13 7v10" stroke-dasharray="2 2"/>'),
     cash: svg('<rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/>'),
     coin: svg('<circle cx="12" cy="12" r="8"/><path d="M12 8v8"/>'),
@@ -395,6 +543,10 @@
     { id: 'code', icon: ICON.code, color: '#6bc8ff', art: 'dots', tag: 'Logic', time: 180, mount: code },
     { id: 'rush', icon: ICON.rush, color: '#4fd1e0', art: 'rings', tag: 'Speed', time: 30, mount: rush },
     { id: 'recall', icon: ICON.recall, color: '#ff7aa8', art: 'lines', tag: 'Memory', time: 120, mount: recall },
+    { id: 'wave', icon: ICON.wave, color: '#4fd1e0', art: 'stripes', tag: 'Focus', time: 90, mount: wave },
+    { id: 'snake', icon: ICON.snake, color: '#8bd63d', art: 'grid', tag: 'Speed', time: 75, mount: snake },
+    { id: 'wordle', icon: ICON.wordle, color: '#3dd6a5', art: 'check', tag: 'Language', time: 120, mount: wordle },
+    { id: 'tictac', icon: ICON.tictac, color: '#ff9f6b', art: 'cross', tag: 'Logic', time: 60, mount: tictac },
   ];
   GAMES.forEach((g) => ['name', 'desc', 'how'].forEach((f) => Object.defineProperty(g, f, { get: () => I18N.t('g.' + g.id + '.' + f[0]) })));
   GAMES.forEach((g) => { const m = g.mount; g.mount = (stage, ctx) => { RND = ctx.seed != null ? mulberry(ctx.seed) : Math.random; return m(stage, ctx); }; });
