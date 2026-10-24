@@ -73,7 +73,7 @@
     'consent.aria': 'Cookie consent', 'consent.text': 'We use cookies to run the site and to show ads. You can accept personalised ads or keep them non-personalised. See our {link}.', 'consent.link': 'Cookie policy',
     'consent.yes': 'Accept', 'consent.no': 'Keep non-personalised', 'consent.saved': 'Preferences saved', 'consent.np': 'Non-personalised ads only',
     'diff.easy': 'Easy', 'diff.normal': 'Normal', 'diff.hard': 'Hard',
-    'tag.All': 'All', 'tag.Arcade': 'Arcade', 'tag.3D': '3D', 'tag.Brain': 'Brain Training', 'tag.Memory': 'Memory', 'tag.Logic': 'Logic', 'tag.Language': 'Language', 'tag.Speed': 'Speed', 'tag.Focus': 'Focus',
+    'tag.All': 'All', 'tag.Arcade': 'Arcade', 'tag.3D': '3D', 'tag.Brain': 'Brain Sharpener', 'tag.Fun': 'Fun Time Pass', 'sec.Brain': '10× coins', 'sec.Fun': 'Just for fun', 'lead.Brain': 'Sharpen your mind. Brain games pay 10× more coins.', 'lead.Fun': 'Relax and have fun. Time-pass games pay 10× fewer coins.', 'tag.Memory': 'Memory', 'tag.Logic': 'Logic', 'tag.Language': 'Language', 'tag.Speed': 'Speed', 'tag.Focus': 'Focus',
     /* games */
     'g.memory.n': 'Memory Match', 'g.memory.d': 'Find every pair. Chain matches for combos.', 'g.memory.h': 'Cards flash briefly, then hide. Flip two at a time and match every pair. Chain matches for combo points. Peek costs 10 coins.',
     'g.slide.n': 'Slide Master', 'g.slide.d': 'Slide tiles into order. Plan ahead.', 'g.slide.h': 'Tap a tile next to the gap, or use arrow keys. Put the tiles in order. Hard mode is a 4×4 board. Fewer moves earn more XP.',

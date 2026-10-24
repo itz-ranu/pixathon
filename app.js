@@ -216,15 +216,17 @@
     $('#featName').textContent = done ? target.name : t('hero.daily', { name: target.name });
     $('#featNote').textContent = S.boost ? t('hero.boost') : done ? t('hero.dailydone') : t('hero.dailytip');
   }
-  let filter = 'Arcade';
+  let filter = 'Brain';
+  const COIN_X = (g) => g.cat === 'brain' ? 10 : 0.1;
   function renderPlay() {
     const d = dailyGame(), done = S.dailyDone === dayStr();
-    const tags = ['Arcade', '3D', 'Brain'], inCat = (g) => filter === 'Arcade' ? g.cat === 'arcade' : filter === '3D' ? g.is3d : g.cat === 'brain';
-    $('#filters').innerHTML = tags.map((x) => `<button class="${x === filter ? 'on' : ''}" data-filter="${x}" aria-pressed="${x === filter}">${t('tag.' + x)}</button>`).join('');
+    const lead = $('#view-play .lead'); if (lead) lead.textContent = t('lead.' + filter);
+    const tags = ['Brain', 'Fun'], inCat = (g) => filter === 'Brain' ? g.cat === 'brain' : g.cat === 'arcade';
+    $('#filters').innerHTML = tags.map((x) => `<button class="sec ${x === filter ? 'on' : ''}" data-filter="${x}" aria-pressed="${x === filter}"><b>${x === 'Brain' ? '🧠' : '🎉'} ${t('tag.' + x)}</b><small>${t('sec.' + x)}</small></button>`).join('');
     const q = ($('#gSearch').value || '').trim().toLowerCase(), bdg = (g) => g.isNew ? `<i class="bdg new">${t('badge.new')}</i>` : g.hot ? `<i class="bdg hot">🔥 ${t('badge.hot')}</i>` : '';
     $('#trend').innerHTML = GAMES.filter((g) => g.hot && g.cat === 'arcade').map((g) => `<button class="tcard" style="--c:${g.color}" data-play="${g.id}"><span class="art">${g.banner}</span>${bdg(g)}<span class="tname"><b>${g.name}</b><span>${t('tag.' + g.tag)}</span></span><span class="tplay" aria-hidden="true">▶</span></button>`).join('');
     $('#gameGrid').innerHTML = GAMES.filter((g) => (q ? true : inCat(g)) && (!q || g.name.toLowerCase().includes(q))).map((g) => `<button class="gcard" style="--c:${g.color}" data-play="${g.id}">
-      <span class="art art-${g.art}">${g.banner || ''}${bdg(g)}<span class="gi">${g.icon}</span><span class="tplay" aria-hidden="true">▶</span></span><span><h3>${g.name}</h3><p>${g.desc}</p></span>
+      <span class="art art-${g.art}">${g.banner || ''}${bdg(g)}<span class="gi">${g.icon}</span><i class="cx ${g.cat}">${g.cat === 'brain' ? '10×' : '0.1×'} ${ICON.coin}</i><span class="tplay" aria-hidden="true">▶</span></span><span><h3>${g.name}</h3><p>${g.desc}</p></span>
       <span class="gfoot meta"><span>${t('tag.' + g.tag)} · ${fmtTime(g.time)}</span>${g.id === d.id && !done ? `<span class="daily-t">${t('card.daily')}</span>` : `<span>${S.best[g.id] ? t('card.best', { n: nf(S.best[g.id]) }) : t('card.new')}</span>`}</span></button>`).join('') || `<p class="lead">${t('play.none')}</p>`;
     // bonus + streak
     const st = effStreak(), claimed = S.bonusDay === dayStr(), amt = 10 + 5 * Math.min(st, 6);
@@ -456,7 +458,7 @@
     curDuel = opts.duel || null;
     if (!opts.skipPre && !curDuel) {
       S.seen[g.id] = 1; save();
-      modal(`<p class="meta">${t('tag.' + g.tag)} · ${fmtTime(g.time)}</p><h2>${g.name}</h2><p>${g.how}</p>
+      modal(`<div class="pre-hero" style="--c:${g.color}"><span class="pre-art">${g.banner}</span><span class="pre-ic">${g.icon}</span><i class="cx ${g.cat}">${g.cat === 'brain' ? '10×' : '0.1×'} ${ICON.coin}</i></div><p class="meta">${t('tag.' + g.tag)} · ${fmtTime(g.time)} · ${t('tag.' + (g.cat === 'brain' ? 'Brain' : 'Fun'))}</p><h2>${g.name}</h2><p>${g.how}</p>
         <div class="diff" role="group" aria-label="${t('set.diff')}">${DIFF_M.map((m, i) => `<button class="dch ${i === S.diff ? 'on' : ''}" data-diff="${i}" aria-pressed="${i === S.diff}"><b>${dn(i)}</b><span>${m}× XP</span></button>`).join('')}</div>
         <p class="meta">${S.best[g.id] ? t('pre.best', { n: nf(S.best[g.id]) }) : t('pre.nobest')}</p>
         <div class="acts"><button class="btn primary" id="howGo">${t('pre.start')}</button><button class="btn ghost" data-close>${t('pre.notnow')}</button></div>`);
@@ -507,7 +509,7 @@
     const stars0 = r.win ? (r.quality > .75 ? 3 : r.quality > .4 ? 2 : 1) : 0;
     let xp = r.win ? 40 + r.quality * 80 + (stars0 === 3 ? 25 : 0) : 10 + r.quality * 20;
     const dm = DIFF_M[runDiff], bst = S.boost && r.win; if (bst) S.boost = false;
-    xp = Math.round(xp * mul * dm * (bst ? 2 : 1) * (isDaily ? 2 : 1)); const coins = Math.max(2, Math.round(xp / 3));
+    xp = Math.round(xp * mul * dm * (bst ? 2 : 1) * (isDaily ? 2 : 1)); const coins = Math.max(1, Math.round(xp / 3 * COIN_X(g)));
     if (isDaily) S.dailyDone = today;
     const before = levelOf(S.xp);
     const apply = (x, c) => { S.xp += x; S.coins += c; S.week.xp += x; S.q.xp += x; };

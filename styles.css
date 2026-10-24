@@ -896,3 +896,36 @@ html[lang=ar] .avg h4,html[lang=hi] .avg h4{text-transform:none}
 .lvups p+p{border-top:1px solid color-mix(in srgb,var(--ac) 25%,transparent)}
 .lvups .flame{width:16px;height:16px}
 .chip{white-space:nowrap}
+
+/* ---- sections: Brain Sharpener / Fun Time Pass ---- */
+.filters{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.filters button.sec{height:auto;padding:14px 16px;border-radius:var(--r,16px);display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:start;background:var(--s2);transition:transform .15s,border-color .15s,box-shadow .15s}
+.filters button.sec b{font:600 1.0625rem var(--f-disp)}
+.filters button.sec small{font-size:.8125rem;opacity:.75}
+.filters button.sec:hover{transform:translateY(-2px)}
+.filters button.sec.on{box-shadow:0 8px 24px -8px var(--ac)}
+.gcard{transition:transform .18s,box-shadow .18s,border-color .18s}
+.gcard:hover{transform:translateY(-4px);border-color:var(--c);box-shadow:0 14px 30px -14px var(--c)}
+.gcard:active{transform:scale(.98)}
+.gcard .art{position:relative;overflow:hidden}
+.gcard .gi{filter:drop-shadow(0 4px 10px rgba(0,0,0,.45))}
+.cx{position:absolute;top:8px;inset-inline-end:8px;display:inline-flex;align-items:center;gap:3px;padding:3px 8px;border-radius:99px;font:700 .75rem var(--f-disp);font-style:normal;background:rgba(0,0,0,.55);backdrop-filter:blur(6px);color:#ffd23d}
+.cx.arcade{color:#9aa4b2}
+.cx svg{width:12px;height:12px}
+
+/* ---- pre-game card ---- */
+.pre-hero{position:relative;height:120px;margin:-4px -4px 14px;border-radius:14px;overflow:hidden;border:1px solid var(--line2)}
+.pre-art,.pre-art svg{position:absolute;inset:0;width:100%;height:100%}
+.pre-ic{position:absolute;inset-inline-start:12px;bottom:10px;width:44px;height:44px;display:grid;place-items:center;border-radius:12px;background:rgba(0,0,0,.5);backdrop-filter:blur(6px);color:var(--c);border:1px solid rgba(255,255,255,.18)}
+.pre-ic svg{width:24px;height:24px}
+.dch{transition:transform .15s,border-color .15s,box-shadow .15s}
+.dch:hover{transform:translateY(-2px)}
+.dch.on{box-shadow:0 6px 18px -6px var(--ac)}
+/* ---- in-game polish ---- */
+#gameOv .stage{border-radius:20px;background:rgba(0,0,0,.22);border:1px solid rgba(255,255,255,.08);box-shadow:inset 0 2px 24px rgba(0,0,0,.35)}
+#gameOv .game-shell{box-shadow:0 30px 80px -20px color-mix(in srgb,var(--c,#8b7bff) 55%,#000),0 0 0 1px rgba(255,255,255,.08)}
+#gameOv button:not(.x):not(.pw):active{transform:scale(.96)}
+.res-xp{text-shadow:0 0 32px color-mix(in srgb,var(--ac) 60%,transparent);animation:resPop .5s cubic-bezier(.2,1.4,.4,1) both}
+.res-rows{background:rgba(255,255,255,.03)}
+.res-rows div:nth-child(odd){background:rgba(255,255,255,.025)}
+@keyframes resPop{from{transform:scale(.6);opacity:0}to{transform:none;opacity:1}}
