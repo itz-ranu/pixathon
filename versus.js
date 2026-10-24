@@ -8,6 +8,18 @@
   const CH = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789', MAXP = 6, PREFIX = 'pixaquest-';
   const mkCode = () => Array.from({ length: 5 }, () => CH[Math.floor(Math.random() * CH.length)]).join('');
   const T = (k, v) => I18N.t(k, v);
+  // STUN finds each laptop's public address; TURN relays when a strict router/firewall blocks direct links.
+  const PEER_OPTS = {
+    debug: 0,
+    config: {
+      iceCandidatePoolSize: 4,
+      iceServers: [
+        { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302', 'stun:global.stun.twilio.com:3478'] },
+        { urls: ['turn:openrelay.metered.ca:80', 'turn:openrelay.metered.ca:443', 'turns:openrelay.metered.ca:443?transport=tcp'], username: 'openrelayproject', credential: 'openrelayproject' }
+      ]
+    }
+  };
+  const PING_MS = 4000, DEAD_MS = 14000;
   let API = null, room = null, lobbyOpen = false, pendingProg = null, progT = 0, progTimer = null;
 
   function unlockModal() {
@@ -19,9 +31,14 @@
   function loadPeer() {
     return new Promise((res, rej) => {
       if (window.Peer) return res();
-      const s = document.createElement('script'); s.src = 'https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js';
-      s.onload = res; s.onerror = () => rej(new Error('load'));
-      document.head.append(s); setTimeout(() => rej(new Error('timeout')), 6000);
+      const urls = ['https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js', 'https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js'];
+      const tryLoad = (i) => {
+        if (i >= urls.length) return rej(new Error('load'));
+        const s = document.createElement('script'); s.src = urls[i];
+        s.onload = res; s.onerror = () => { s.remove(); tryLoad(i + 1); };
+        document.head.append(s);
+      };
+      tryLoad(0); setTimeout(() => rej(new Error('timeout')), 9000);
     });
   }
 
@@ -42,8 +59,8 @@
     await loadPeer();
     return new Promise((res, rej) => {
       let resolved = false;
-      const peer = new window.Peer(PREFIX + code);
-      const t = setTimeout(() => { if (!resolved) { try { peer.destroy(); } catch {} rej(new Error('timeout')); } }, 7000);
+      const peer = new window.Peer(PREFIX + code, PEER_OPTS);
+      const t = setTimeout(() => { if (!resolved) { try { peer.destroy(); } catch {} rej(new Error('timeout')); } }, 10000);
       let cb = () => {};
 
       peer.on('open', () => {
@@ -61,6 +78,8 @@
         if (conn.open) cb(w);
         else conn.on('open', () => cb(w));
       });
+
+      peer.on('disconnected', () => { if (resolved && !peer.destroyed) setTimeout(() => { try { peer.reconnect(); } catch {} }, 800); });
 
       peer.on('error', (e) => {
         if (!resolved) { clearTimeout(t); try { peer.destroy(); } catch {} rej(e); }
@@ -103,8 +122,8 @@
     await loadPeer();
     return new Promise((res, rej) => {
       let resolved = false;
-      const peer = new window.Peer();
-      const t = setTimeout(() => { if (!resolved) { try { peer.destroy(); } catch {} rej(new Error('timeout')); } }, 7000);
+      const peer = new window.Peer(undefined, PEER_OPTS);
+      const t = setTimeout(() => { if (!resolved) { try { peer.destroy(); } catch {} rej(new Error('timeout')); } }, 12000);
 
       peer.on('open', () => {
         const conn = peer.connect(PREFIX + code, { serialization: 'json', reliable: true });
@@ -150,6 +169,7 @@
   }
 
   /* ---------------- helpers ---------------- */
+  const isLocalhost = () => /^(localhost|127\.|\[::1\]|)$/.test(location.hostname);
   const me = () => ({ id: room && room.host ? 'host' : uid, name: API.S.name, av: API.S.avatar });
   const link = () => {
     const u = new URL(location.href); u.search = ''; u.hash = '';
@@ -172,11 +192,13 @@
 
   function hostRecv(conn, m, setPid) {
     if (!m || !room || !room.state) return;
+    if (m.id) room.seen.set(m.id, Date.now());
+    if (m.t === 'pong') return;
     if (m.t === 'hello') {
       const s = room.state;
       if (s.players.length >= MAXP && !player(m.id)) { conn.send({ t: 'full' }); conn.close(); return; }
       if (room.banned.has(m.id)) { conn.send({ t: 'kick' }); conn.close(); return; }
-      setPid(m.id); room.conns.set(m.id, conn);
+      setPid(m.id); room.conns.set(m.id, conn); room.seen.set(m.id, Date.now());
       if (!player(m.id)) {
         s.players.push({ id: m.id, name: String(m.name || 'Player').slice(0, 16), av: m.av, status: 'lobby', prog: '', pts: 0, in: false });
         API.toast(T('v.joined', { n: String(m.name || 'Player').slice(0, 16) }));
@@ -198,7 +220,7 @@
   function removePlayer(id, kicked) {
     if (!room || !room.host) return; const p = player(id); if (!p) return;
     room.state.players = room.state.players.filter((x) => x.id !== id);
-    room.conns.delete(id); room.scores.delete(id);
+    room.conns.delete(id); room.scores.delete(id); room.seen.delete(id);
     if (!kicked) API.toast(T('v.left', { n: p.name }));
     push(); checkAll();
   }
@@ -320,6 +342,8 @@
   /* ---------------- client recv ---------------- */
   function clientRecv(m) {
     if (!m) return;
+    if (room) room.lastRecv = Date.now();
+    if (m.t === 'ping') { if (room && room.conn) room.conn.send({ t: 'pong', id: uid }); return; }
     if (m.t === 'room') {
       room.state = m.state;
       if (m.state.phase === 'lobby') {
@@ -341,6 +365,21 @@
     }
   }
 
+  /* ---------------- connection health ---------------- */
+  function startBeat() {
+    room.lastRecv = Date.now();
+    room.hb = setInterval(() => {
+      if (!room) return;
+      const now = Date.now();
+      if (room.host) {
+        bcast({ t: 'ping' });
+        [...room.conns.keys()].forEach((id) => { if (now - (room.seen.get(id) || now) > DEAD_MS) removePlayer(id); });
+      } else if (now - room.lastRecv > DEAD_MS) {
+        leave(false, T('v.disc'));
+      }
+    }, PING_MS);
+  }
+
   /* ---------------- room lifecycle ---------------- */
   async function create() {
     if (room) return openLobby();
@@ -360,7 +399,7 @@
     const cfg = { mode: 'duel', game: firstGame, games: pick3(), diff: (API.S && API.S.diff) ?? 1 };
     room = {
       code, host: true, local, tr,
-      conns: new Map(), scores: new Map(), banned: new Set(),
+      conns: new Map(), scores: new Map(), banned: new Set(), seen: new Map(), hb: 0,
       state: {
         code, hostId: 'host', phase: 'lobby', cfg, round: -1, rounds: 1,
         players: [{ id: 'host', name: API.S.name, av: API.S.avatar, status: 'lobby', prog: '', pts: 0, in: false }]
@@ -373,6 +412,7 @@
       conn.onClose(() => pid && removePlayer(pid));
     });
 
+    startBeat();
     if (local) API.toast(T('v.offline'));
     openLobby(); API.refreshView();
   }
@@ -383,28 +423,33 @@
     if (room) return API.toast(T('v.leavefirst'));
 
     API.toast(T('v.joining'));
-    let conn = null, local = false;
+    let conn = null, local = false, netErr = false;
     const forceLocal = new URLSearchParams(location.search).get('l') === '1';
 
-    try {
-      if (forceLocal) throw new Error('local');
-      conn = await peerJoin(code);
-    } catch {
-      try {
-        conn = await localJoin(code);
-        local = true;
-      } catch {
-        return API.toast(T('v.notfound'));
+    if (!forceLocal) {
+      for (let i = 0; i < 2 && !conn; i++) {
+        try { conn = await peerJoin(code); } catch (e) {
+          // a missing room won't appear by retrying; a slow network might
+          if (e && e.type === 'peer-unavailable') break;
+          netErr = true;
+          if (i === 0) await new Promise((r) => setTimeout(r, 600));
+        }
+      }
+    }
+    if (!conn) {
+      try { conn = await localJoin(code); local = true; netErr = false; } catch {
+        return API.toast(T(netErr ? 'v.neterr' : 'v.notfound'));
       }
     }
 
-    room = { code, host: false, local, conn, state: null };
+    room = { code, host: false, local, conn, state: null, lastRecv: Date.now(), hb: 0 };
     conn.onData(clientRecv);
     conn.onClose(() => setTimeout(() => room && !room.host && leave(false, T('v.disc')), 400));
 
     // Always send hello once listeners are set
     conn.send({ t: 'hello', id: uid, name: API.S.name, av: API.S.avatar });
 
+    startBeat();
     openLobby(); API.refreshView();
   }
 
@@ -419,6 +464,7 @@
         room.conn.close();
       }
     } catch {}
+    if (room.hb) clearInterval(room.hb);
     room = null; lobbyOpen = false;
     const ov = $('#vsOv'); if (ov) ov.hidden = true;
     API.closeGame(); setBar(false);
@@ -522,6 +568,8 @@
         </div>
       </div>
       <div class="vslink"><code>${esc(link())}</code></div>
+      ${isLocalhost() && !room.local ? `<p class="vswarn" role="note">${T('v.localwarn')}</p>` : ''}
+      ${room.local ? `<p class="vswarn" role="note">${T('v.offline')}</p>` : ''}
       <ul class="vsplayers">${players}${empty}</ul>${cfg}${startBtn}
       <p style="margin-top:12px;text-align:center"><button class="btn ghost danger sm" data-vs="leave">${host ? T('v.closeroom') : T('v.leave')}</button></p>
     </div>`;

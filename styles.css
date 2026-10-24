@@ -683,3 +683,10 @@ html[lang=ar] .avg h4,html[lang=hi] .avg h4{text-transform:none}
 }
 @media (max-width:640px){.chip-lvl{display:none}}
 @media (max-width:480px){.logo span{display:none}.top-in{gap:12px}.chips{margin-inline-start:auto}.themes{gap:6px}}
+
+/* rush bonus/bomb targets, versus warnings */
+.tg.gold{background:#f2d45c;box-shadow:0 0 18px #f2d45c99;animation:tgin .15s var(--ease),glow .5s ease-in-out infinite alternate}
+.tg.bomb{background:#ff6b5e}
+.tg em{position:absolute;inset:0;display:grid;place-items:center;font:700 1.25rem var(--f-disp);font-style:normal;color:#14170a;pointer-events:none}
+@keyframes glow{to{box-shadow:0 0 30px #f2d45ccc}}
+.vswarn{margin:-6px 0 14px;padding:10px 12px;font-size:.8125rem;line-height:1.45;color:var(--tx2);background:var(--s2);border:1px solid var(--line);border-inline-start:3px solid #ffb454;border-radius:var(--rs)}

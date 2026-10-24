@@ -398,7 +398,9 @@
   function comboHide() { const c = $('#combo'); if (c) c.hidden = true; }
   function comboShow(n) {
     const c = $('#combo'); if (!c) return; if (n < 2) { c.hidden = true; return; }
-    c.hidden = false; c.firstElementChild.textContent = t('combo', { n }); c.lastElementChild.firstElementChild.style.width = Math.min(100, n * 10) + '%';
+    c.hidden = false; c.firstElementChild.textContent = t('combo', { n });
+    const shout = { 5: 'combo.5', 10: 'combo.10', 15: 'combo.15', 20: 'combo.20' }[n];
+    if (shout) { const st = $('#stage'); fxApi.pop(st, t(shout), `hsl(${(60 + n * 28) % 360} 85% 62%)`); fxApi.burst(st, '#ffb454', 40); sfx('win'); } c.lastElementChild.firstElementChild.style.width = Math.min(100, n * 10) + '%';
     c.style.setProperty('--h', (60 + n * 28) % 360); c.classList.remove('hit'); void c.offsetWidth; c.classList.add('hit');
   }
   function flash(color) { const d = document.createElement('div'); d.className = 'flash'; d.style.background = color; $('.game-shell').append(d); setTimeout(() => d.remove(), 500); }

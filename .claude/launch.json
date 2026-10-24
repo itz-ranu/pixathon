@@ -1,6 +1,6 @@
 {
   "version": "0.0.1",
   "configurations": [
-    { "name": "pixaquest", "runtimeExecutable": "sh", "runtimeArgs": ["-c", "cd /Users/bharat/Desktop/code/pixaton && exec python3 -m http.server 5177"], "port": 5177 }
+    { "name": "pixaquest", "port": 5177, "url": "http://localhost:5177" }
   ]
 }

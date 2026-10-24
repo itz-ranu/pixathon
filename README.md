@@ -132,3 +132,13 @@ XP validation, coupon inventory, payout review), real ad IDs, a consent banner, 
 
 ## Versus (friend duels)
 `versus.js` runs rooms over WebRTC using the free PeerJS broker (unpkg + 0.peerjs.com), falling back to same-device tabs. For production reliability host your own PeerJS server or move rooms to the planned backend. `avatar.js` is the character builder; logo assets live in `assets/`.
+
+
+## 🖥️ Laptop-to-laptop multiplayer
+
+Versus rooms use WebRTC (PeerJS broker + STUN/TURN relay), so two laptops on **different networks** can play each other once both open the same hosted copy of the site.
+
+1. Laptop A: **Versus → Create room**, then share the 5-letter code (or the invite link).
+2. Laptop B: open the site, **Versus → Join**, enter the code.
+
+Testing on one Wi-Fi without deploying: run `./serve.sh` on laptop A and open the `http://<ip>:5177` address it prints on both laptops. (A `localhost` invite link only works on the laptop that hosts it, so share the code or the IP address instead.)

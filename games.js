@@ -105,9 +105,9 @@
 
   /* ---------- 4. Math Sprint ---------- */
   function math(stage, ctx) {
-    const D = ctx.diff; let left = pick([60, 45, 35], D), score = 0, streak = 0, best = 0, ans = 0, over = false;
+    const D = ctx.diff; let left = pick([60, 45, 35], D), score = 0, pts = 0, streak = 0, best = 0, ans = 0, over = false;
     const q = $('<div class="q"></div>'), inp = $('<input class="ans" inputmode="numeric" autocomplete="off" aria-label="Answer">');
-    const hud = () => ctx.hud([{ t: `${left}s`, low: left <= 8 }, H('correct', score), H('streak', streak)]);
+    const hud = () => ctx.hud([{ t: `${left}s`, low: left <= 8 }, H('correct', score), streak >= 5 ? { t: `🔥 ${H('streak', streak)} ×${(1 + Math.floor(streak / 5) * .5).toFixed(1)}` } : H('streak', streak)]);
     const next = () => {
       const lvl = Math.min(3, Math.floor(score / 5) + D), ops = lvl === 0 ? ['+', '-'] : lvl === 1 ? ['+', '-', '×'] : ['+', '-', '×', '×'];
       const op = ops[ri(0, ops.length - 1)]; let a, b;
@@ -116,9 +116,9 @@
       else { a = ri(2, 9 + lvl * 3); b = ri(2, 9 + lvl * 2); ans = a * b; }
       q.textContent = `${a} ${op} ${b}`; inp.value = ''; hud();
     };
-    inp.oninput = () => { if (+inp.value === ans && inp.value !== '') { score++; streak++; best = Math.max(best, streak); ctx.sfx('good', streak); ctx.combo(streak); ctx.pop(q, streak % 5 === 0 ? '+2s' : '+1', '#ffb454'); if (streak % 5 === 0) { left += 2; ctx.burst(q, '#ffb454', 20); } next(); } };
+    inp.oninput = () => { if (+inp.value === ans && inp.value !== '') { score++; streak++; best = Math.max(best, streak); pts += 100 * (1 + Math.floor(streak / 5) * .5); if (streak > 0 && streak % 5 === 0) ctx.flash('#ffb454'); ctx.sfx('good', streak); ctx.combo(streak); ctx.pop(q, streak % 5 === 0 ? '+2s' : '+1', '#ffb454'); if (streak % 5 === 0) { left += 2; ctx.burst(q, '#ffb454', 20); } next(); } };
     inp.onkeydown = (e) => { if (e.key === 'Enter' && inp.value !== '' && +inp.value !== ans) { streak = 0; ctx.combo(0); ctx.sfx('bad'); ctx.shake(q); inp.value = ''; hud(); } };
-    const timer = setInterval(() => { left--; if (left <= 0) { if (over) return; over = true; clearInterval(timer); ctx.end({ win: score >= 8, quality: clamp(score / (22 + D * 6)), score: score * 100 + best * 20, label: T('lbl.mathEnd', { n: score, b: best }) }); } else hud(); }, 1000);
+    const timer = setInterval(() => { left--; if (left <= 0) { if (over) return; over = true; clearInterval(timer); ctx.end({ win: score >= 8, quality: clamp(score / (22 + D * 6)), score: Math.round(pts) + best * 20, label: T('lbl.mathEnd', { n: score, b: best }) }); } else hud(); }, 1000);
     stage.append(q, inp, $(`<p class="hint" style="margin-top:14px">${T('hint.math')}</p>`));
     next(); setTimeout(() => inp.focus(), 100);
     ctx.power({ label: T('pw.secs', { n: 8 }), cost: 15, use: () => { left += 8; hud(); inp.focus(); } });
@@ -221,15 +221,16 @@
   /* ---------- 9. Color Clash ---------- */
   function stroop(stage, ctx) {
     const ALL = [['red', '#ff6b5e'], ['green', '#3dd6a5'], ['blue', '#5aa9ff'], ['yellow', '#ffd25e'], ['pink', '#ff7aa8']].map(([k, c]) => [T('col.' + k), c]), C = ALL.slice(0, ctx.diff === 2 ? 5 : 4), K = C.length;
-    let left = pick([40, 30, 24], ctx.diff), ok = 0, lives = 3, cur, ended = false, streak = 0;
+    let left = pick([40, 30, 24], ctx.diff), ok = 0, lives = 3, cur, ended = false, streak = 0, rev = false;
     const word = $('<div class="q"></div>'), btns = $('<div class="sdk-pad"></div>');
     const hud = () => ctx.hud([{ t: `${left}s`, low: left <= 6 }, H('correct', ok), H('lives', lives)]);
-    const next = () => { const w = ri(0, K - 1); let c = ri(0, K - 1); if (RND() < .8) while (c === w) c = ri(0, K - 1); cur = c; word.textContent = C[w][0]; word.style.color = C[c][1]; hud(); };
+    const rule = $(`<p class="hint" style="margin:0 0 6px;font-weight:600"></p>`);
+    const next = () => { const w = ri(0, K - 1); let c = ri(0, K - 1); if (RND() < .8) while (c === w) c = ri(0, K - 1); rev = ok >= 4 && RND() < .3; cur = rev ? w : c; word.textContent = C[w][0]; word.style.color = C[c][1]; rule.textContent = rev ? T('stroop.word') : T('hint.stroop'); rule.style.color = rev ? '#ff7aa8' : ''; hud(); };
     C.forEach(([n, col], i) => { const b = $(`<button class="btn" style="border-color:${col}">${n}</button>`);
-      b.onclick = () => { if (ended) return; if (i === cur) { ok++; streak++; ctx.sfx('good', streak); ctx.combo(streak); ctx.pop(word, '+1', C[cur][1]); if (streak % 6 === 0) { left += 2; ctx.pop(word, '+2s', '#d6ff3d'); } } else { lives--; streak = 0; ctx.combo(0); ctx.sfx('bad'); ctx.shake(word); if (lives <= 0) return fin(); } next(); }; btns.append(b); });
+      b.onclick = () => { if (ended) return; if (i === cur) { ok++; streak++; ctx.sfx('good', streak); ctx.combo(streak); ctx.pop(word, rev ? '+2' : '+1', C[cur][1]); if (rev) ok++; if (streak % 6 === 0) { left += 2; ctx.pop(word, '+2s', '#d6ff3d'); } } else { lives--; streak = 0; ctx.combo(0); ctx.sfx('bad'); ctx.shake(word); if (lives <= 0) return fin(); } next(); }; btns.append(b); });
     const timer = setInterval(() => { left--; if (left <= 0) fin(); else hud(); }, 1000);
     function fin() { if (ended) return; ended = true; clearInterval(timer); ctx.end({ win: ok >= 10, quality: clamp(ok / (24 + ctx.diff * 4)), score: ok * 100 + lives * 50, label: T('lbl.correct', { n: ok }) }); }
-    stage.append($(`<p class="hint" style="margin:0 0 6px">${T('hint.stroop')}</p>`), word, btns); next();
+    stage.append(rule, word, btns); next();
     ctx.power({ label: T('pw.secs', { n: 5 }), cost: 10, use: () => { left += 5; hud(); } });
     return () => clearInterval(timer);
   }
@@ -341,9 +342,12 @@
     const resolved = () => { active--; if (!over && active <= 0) to.push(setTimeout(wave, 160)); };
     function spawn() {
       active++; const life = Math.max(700, 1500 * speed - score * 35), size = Math.max(46, 76 - score * 1.2);
-      const b = $(`<button class="tg" aria-label="Target" style="left:${ri(4, 80)}%;top:${ri(4, 80)}%;width:${size}px;height:${size}px;--d:${life}ms"><i></i></button>`); let done = false;
-      b.onpointerdown = (e) => { e.preventDefault(); if (done || over) return; done = true; combo++; score++; ctx.sfx('good', combo); ctx.combo(combo); ctx.burst(b, '#4fd1e0', 12); ctx.pop(b, combo > 2 ? `×${combo}` : '+1', '#4fd1e0'); b.remove(); hud(); resolved(); };
-      to.push(setTimeout(() => { if (done || over) return; done = true; b.remove(); combo = 0; ctx.combo(0); lives--; ctx.sfx('bad'); ctx.shake(arena); hud(); if (lives <= 0) fin(); else resolved(); }, life));
+      const r = RND(), kind = score >= 4 && r < .13 ? 'gold' : score >= 6 && r < .30 ? 'bomb' : 'norm', col = kind === 'gold' ? '#f2d45c' : kind === 'bomb' ? '#ff6b5e' : '#4fd1e0';
+      const b = $(`<button class="tg ${kind}" aria-label="${kind === 'bomb' ? 'Bomb' : 'Target'}" style="left:${ri(4, 80)}%;top:${ri(4, 80)}%;width:${size}px;height:${size}px;--d:${life}ms"><i></i>${kind === 'bomb' ? '<em>✕</em>' : kind === 'gold' ? '<em>★</em>' : ''}</button>`); let done = false;
+      b.onpointerdown = (e) => { e.preventDefault(); if (done || over) return; done = true;
+        if (kind === 'bomb') { combo = 0; ctx.combo(0); lives--; ctx.sfx('bad'); ctx.burst(b, col, 22); ctx.pop(b, T('rush.bomb'), col); b.remove(); ctx.shake(arena); hud(); if (lives <= 0) return fin(); return resolved(); }
+        combo++; const gain = kind === 'gold' ? 3 : 1; score += gain; if (kind === 'gold') { left += 2; ctx.flash(col); } ctx.sfx('good', combo); ctx.combo(combo); ctx.burst(b, col, kind === 'gold' ? 28 : 12); ctx.pop(b, kind === 'gold' ? T('rush.gold') : combo > 2 ? `×${combo}` : '+1', col); b.remove(); hud(); resolved(); };
+      to.push(setTimeout(() => { if (done || over) return; done = true; b.remove(); if (kind === 'bomb') return resolved(); if (kind === 'norm') { combo = 0; ctx.combo(0); lives--; ctx.sfx('bad'); ctx.shake(arena); hud(); if (lives <= 0) return fin(); } resolved(); }, life));
       arena.append(b);
     }
     const timer = setInterval(() => { left--; if (left <= 0) fin(); else hud(); }, 1000);
