@@ -1,5 +1,5 @@
 # Pixaquest
-::: {align="center"}
+
 # ✦ MONEY MAZE ✦
 
 ### A Puzzle Game About Money, Choices & Strategy
