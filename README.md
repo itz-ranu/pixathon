@@ -101,7 +101,7 @@ finalized.
 Found a bug or have an idea for a new puzzle?
 
 -   **Email:** \[your-support-email@example.com\]
--   **Developer / Team:** \[Your team name\]
+-   **Developer / Team:** The Unknown
 
 ## 📜 License
 
